@@ -14,6 +14,7 @@ import {
   RewardWallet,
   HydraVault,
   PriceOracle,
+  Slashing,
 } from "../typechain-types";
 
 export interface Signers {
@@ -40,6 +41,7 @@ export interface Fixtures {
       priceOracle: PriceOracle;
       rewardWallet: RewardWallet;
       DAOIncentiveVault: HydraVault;
+      Slashing:Slashing
     }>;
   };
   initializedHydraChainStateFixture: {

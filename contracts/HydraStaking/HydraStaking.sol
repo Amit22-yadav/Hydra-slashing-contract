@@ -12,11 +12,12 @@ import {VestedStaking} from "./modules/VestedStaking/VestedStaking.sol";
 import {DelegatedStaking} from "./modules/DelegatedStaking/DelegatedStaking.sol";
 import {StateSyncStaking} from "./modules/StateSyncStaking/StateSyncStaking.sol";
 import {PenalizeableStaking} from "./modules/PenalizeableStaking/PenalizeableStaking.sol";
+import {Slashing} from "./modules/Slashing/Slashing.sol";
 import {IHydraStaking, StakerInit} from "./IHydraStaking.sol";
 import {Staking, IStaking} from "./Staking.sol";
 
-contract HydraStaking is
-    IHydraStaking,
+ contract HydraStaking is
+   IHydraStaking,
     System,
     RewardWalletConnector,
     Staking,
@@ -32,6 +33,8 @@ contract HydraStaking is
     uint256 public lastDistribution;
     /// @notice Mapping used to keep the paid rewards per epoch
     mapping(uint256 => uint256) public distributedRewardPerEpoch;
+    /// @notice Slashing contract instance
+    Slashing public slashingContract;
 
     // _______________ Initializer _______________
 
@@ -47,13 +50,15 @@ contract HydraStaking is
         address hydraChainAddr,
         address hydraDelegationAddr,
         address rewardWalletAddr,
-        address liquidToken
+        address liquidToken,
+        address slashingAddr
     ) external initializer onlySystemCall {
         __Staking_init(newMinStake, governance, aprCalculatorAddr, hydraChainAddr, rewardWalletAddr);
         __DelegatedStaking_init_unchained(hydraDelegationAddr);
         __Liquid_init(liquidToken);
         __Vesting_init_unchained();
 
+        slashingContract = Slashing(slashingAddr);
         _initialize(initialStakers);
     }
 
@@ -114,6 +119,25 @@ contract HydraStaking is
      */
     function recoverEjectedValidator(address account) external onlyHydraChain {
         _syncState(account);
+    }
+
+    /**
+     * @notice Slashes a validator's stake for misbehavior
+     * @param validator The address of the validator to slash
+     * @param amount The amount to slash
+     * @param reason The reason for slashing
+     */
+    function slashValidator(address validator, uint256 amount, string calldata reason) external onlySystemCall {
+        slashingContract.slashValidator(validator, amount, reason);
+    }
+
+    /**
+     * @notice Returns the slashed amount for a validator
+     * @param validator The address of the validator
+     * @return The total amount slashed
+     */
+    function getSlashedAmount(address validator) external view returns (uint256) {
+        return slashingContract.getSlashedAmount(validator);
     }
 
     // _______________ Public functions _______________

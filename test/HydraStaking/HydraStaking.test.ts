@@ -58,7 +58,8 @@ export function RunHydraStakingTests(): void {
             hydraChain.address,
             hydraDelegation.address,
             rewardWallet.address,
-            liquidToken.address
+            liquidToken.address,
+            ""
           );
 
         expect(await hydraStaking.totalBalance(), "totalSupply").to.equal(0);
@@ -78,7 +79,8 @@ export function RunHydraStakingTests(): void {
             hydraChain.address,
             hydraDelegation.address,
             rewardWallet.address,
-            liquidToken.address
+            liquidToken.address,
+            ""
           )
         )
           .to.be.revertedWithCustomError(hydraChain, ERRORS.unauthorized.name)
@@ -99,7 +101,8 @@ export function RunHydraStakingTests(): void {
             hydraChain.address,
             hydraDelegation.address,
             rewardWallet.address,
-            liquidToken.address
+            liquidToken.address,
+            ""
           )
         ).to.be.revertedWithCustomError(hydraStaking, "InvalidMinStake");
       });
@@ -155,7 +158,8 @@ export function RunHydraStakingTests(): void {
             hydraChain.address,
             hydraDelegation.address,
             rewardWallet.address,
-            liquidToken.address
+            liquidToken.address,
+            ""
           )
         ).to.be.revertedWith(ERRORS.initialized);
       });

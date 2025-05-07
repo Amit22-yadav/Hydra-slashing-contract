@@ -3,6 +3,8 @@ import "@openzeppelin/hardhat-upgrades";
 import "@primitivefi/hardhat-dodoc";
 import * as dotenv from "dotenv";
 import { HardhatUserConfig } from "hardhat/config";
+import "@typechain/hardhat";
+import "hardhat-gas-reporter";
 // Fix BigInt serialization: https://github.com/GoogleChromeLabs/jsbi/issues/30
 import "./big-int-fix.ts";
 
@@ -44,7 +46,7 @@ const config: HardhatUserConfig = {
     },
   },
   gasReporter: {
-    enabled: (process.env.REPORT_GAS as unknown as boolean) || false,
+    enabled: process.env.REPORT_GAS !== undefined,
     currency: "USD",
   },
   etherscan: {
@@ -60,6 +62,10 @@ const config: HardhatUserConfig = {
   dodoc: {
     // uncomment to stop docs from autogenerating each compile
     // runOnCompile: false,
+  },
+  typechain: {
+    outDir: "typechain-types",
+    target: "ethers-v5",
   },
 };
 

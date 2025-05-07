@@ -7,8 +7,11 @@ import {HydraChainConnector} from "../HydraChain/HydraChainConnector.sol";
 import {APRCalculatorConnector} from "../APRCalculator/APRCalculatorConnector.sol";
 import {RewardWalletConnector} from "../RewardWallet/RewardWalletConnector.sol";
 import {IStaking, StakingReward} from "./IStaking.sol";
+// import {System} from "../common/System/System.sol";
 
-contract Staking is IStaking, Withdrawal, HydraChainConnector, APRCalculatorConnector, RewardWalletConnector {
+ contract Staking is IStaking, Withdrawal, HydraChainConnector, APRCalculatorConnector, RewardWalletConnector {
+    // bytes32 public constant SYSTEM_ROLE = keccak256("SYSTEM_ROLE");
+
     /// @notice A constant for the minimum stake limit
     uint256 public constant MIN_STAKE_LIMIT = 1 ether;
 
@@ -76,6 +79,16 @@ contract Staking is IStaking, Withdrawal, HydraChainConnector, APRCalculatorConn
      */
     function changeMinStake(uint256 newMinStake) external onlyGovernance {
         _changeMinStake(newMinStake);
+    }
+
+    /**
+     * @notice Internal function to unstake on behalf of a staker
+     * @dev Only callable by system contracts
+     * @param staker The address of the staker
+     * @param amount The amount to unstake
+     */
+    function unstakeFor(address staker, uint256 amount) external {
+        _unstake(staker, amount);
     }
 
     // _______________ Public functions _______________

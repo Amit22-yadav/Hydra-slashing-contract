@@ -54,4 +54,9 @@ interface IStaking is IWithdrawal {
      * @param account Staker address
      */
     function unclaimedRewards(address account) external view returns (uint256);
+
+    /// @notice Internal function to unstake on behalf of a staker
+    /// @param staker The address of the staker
+    /// @param amount The amount to unstake
+    function unstakeFor(address staker, uint256 amount) external;
 }

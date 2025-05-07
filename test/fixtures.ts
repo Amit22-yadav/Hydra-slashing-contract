@@ -16,6 +16,7 @@ import {
   PriceOracle__factory,
   RewardWallet__factory,
   VestingManagerFactory__factory,
+  Slashing__factory,
 } from "../typechain-types";
 import {
   DAY,
@@ -140,6 +141,7 @@ async function presetHydraChainStateFixtureFunction(this: Mocha.Context) {
   const priceOracle = await PriceOracleFixtureFunction.bind(this)();
   const rewardWallet = await RewardWalletFixtureFunction.bind(this)();
   const DAOIncentiveVault = await hydraVaultFixtureFunction.bind(this)();
+  const slashing = await (new Slashing__factory(this.signers.admin)).deploy(hydraStaking.address);
 
   return {
     hydraChain,
@@ -153,6 +155,7 @@ async function presetHydraChainStateFixtureFunction(this: Mocha.Context) {
     priceOracle,
     rewardWallet,
     DAOIncentiveVault,
+    Slashing: slashing,
   };
 }
 
@@ -224,7 +227,8 @@ async function initializedHydraChainStateFixtureFunction(this: Mocha.Context) {
       hydraChain.address,
       hydraDelegation.address,
       rewardWallet.address,
-      liquidToken.address
+      liquidToken.address,
+      ""
     );
 
   await hydraDelegation
@@ -332,7 +336,8 @@ async function initializedWithSpecificBonusesStateFixtureFunction(this: Mocha.Co
       hydraChain.address,
       hydraDelegation.address,
       rewardWallet.address,
-      liquidToken.address
+      liquidToken.address,
+      ""
     );
 
   await hydraDelegation
