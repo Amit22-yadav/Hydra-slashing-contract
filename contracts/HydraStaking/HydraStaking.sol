@@ -124,11 +124,10 @@ import {Staking, IStaking} from "./Staking.sol";
     /**
      * @notice Slashes a validator's stake for misbehavior
      * @param validator The address of the validator to slash
-     * @param amount The amount to slash
      * @param reason The reason for slashing
      */
-    function slashValidator(address validator, uint256 amount, string calldata reason) external onlySystemCall {
-        slashingContract.slashValidator(validator, amount, reason);
+    function slashValidator(address validator, string calldata reason) external onlySystemCall {
+        slashingContract.slashValidator(validator, reason);
     }
 
     /**
