@@ -18,8 +18,6 @@ contract Slashing is ISlashing, System {
     // Reference to the HydraChain contract (Inspector module)
     address public immutable HYDRA_CHAIN_CONTRACT;
 
-    event ValidatorSlashed(address indexed validator, string reason);
-
     constructor(address _hydraChainContract) {
         HYDRA_CHAIN_CONTRACT = _hydraChainContract;
     }
