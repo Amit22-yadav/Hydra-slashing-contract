@@ -18,6 +18,8 @@ contract Slashing is ISlashing, System {
     // Reference to the HydraChain contract (Inspector module)
     address public immutable HYDRA_CHAIN_CONTRACT;
 
+    event ValidatorSlashed(address indexed validator, string reason);
+
     constructor(address _hydraChainContract) {
         HYDRA_CHAIN_CONTRACT = _hydraChainContract;
     }
@@ -26,15 +28,13 @@ contract Slashing is ISlashing, System {
      * @notice Called by the system to slash a validator for double-signing.
      * @dev On-chain evidence verification is omitted; assumes consensus nodes have already verified.
      * @param validator Address of the validator to be slashed
-     * @param amount Amount to slash
      * @param reason Reason for slashing (string)
      */
-    function slashValidator(address validator, uint256 amount, string calldata reason) external onlySystemCall {
+    function slashValidator(address validator, string calldata reason) external onlySystemCall {
         require(validator != address(0), "Invalid validator address");
-        require(amount > 0, "Amount must be positive");
         // Notify Inspector module on HydraChain
         IInspector(HYDRA_CHAIN_CONTRACT).slashValidator(validator, reason);
-        emit ValidatorSlashed(validator, amount, reason);
+        emit ValidatorSlashed(validator, reason);
     }
 
     /// @inheritdoc ISlashing
