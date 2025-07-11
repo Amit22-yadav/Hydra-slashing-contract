@@ -4,22 +4,29 @@ pragma solidity 0.8.17;
 import {ISlashing} from "./ISlashing.sol";
 import {System} from "../../../common/System/System.sol";
 import {Unauthorized} from "../../../common/Errors.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 interface IInspector {
     function slashValidator(address validator, string calldata reason) external;
 }
 
-contract Slashing is ISlashing, System {
+contract Slashing is ISlashing, System, Initializable {
     // Mapping to track slashed amounts per validator
     mapping(address => uint256) private _slashedAmounts;
     // Mapping to track if a validator is slashed
     mapping(address => bool) private _isSlashed;
 
     // Reference to the HydraChain contract (Inspector module)
-    address public immutable HYDRA_CHAIN_CONTRACT;
+    address public hydraChainContract;
 
-    constructor(address _hydraChainContract) {
-        HYDRA_CHAIN_CONTRACT = _hydraChainContract;
+    // Initializer for upgradeable pattern
+    function initialize(address hydraChainAddr) external initializer onlySystemCall {
+        __Slashing_init(hydraChainAddr);
+    }
+
+    // Internal initializer function
+    function __Slashing_init(address hydraChainAddr) internal onlyInitializing {
+        hydraChainContract = hydraChainAddr;
     }
 
     /**
@@ -31,7 +38,7 @@ contract Slashing is ISlashing, System {
     function slashValidator(address validator, string calldata reason) external onlySystemCall {
         require(validator != address(0), "Invalid validator address");
         // Notify Inspector module on HydraChain
-        IInspector(HYDRA_CHAIN_CONTRACT).slashValidator(validator, reason);
+        IInspector(hydraChainContract).slashValidator(validator, reason);
         emit ValidatorSlashed(validator, reason);
     }
 
