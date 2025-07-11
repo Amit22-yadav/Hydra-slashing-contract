@@ -152,6 +152,28 @@ Gets all validators. Returns already not-active validators as well.
 |---|---|---|
 | _0 | address[] | Returns array of addresses |
 
+### hasBeenSlashed
+
+```solidity
+function hasBeenSlashed(address validator) external view returns (bool)
+```
+
+Returns whether a validator has been slashed
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| validator | address | The address of the validator |
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | bool | True if the validator has been slashed |
+
 ### initiateBan
 
 ```solidity
@@ -354,6 +376,23 @@ Set the penalty amount for the banned validators
 |---|---|---|
 | newPenalty | uint256 | Amount of the penalty |
 
+### slashValidator
+
+```solidity
+function slashValidator(address validator, string reason) external nonpayable
+```
+
+Slashes a validator for double-signing or other misbehavior
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| validator | address | Address of the validator to slash |
+| reason | string | Reason for slashing |
+
 ### terminateBanProcedure
 
 ```solidity
@@ -497,6 +536,23 @@ event ValidatorBanned(address indexed validator)
 | Name | Type | Description |
 |---|---|---|
 | validator `indexed` | address | undefined |
+
+### ValidatorSlashed
+
+```solidity
+event ValidatorSlashed(address indexed validator, string reason)
+```
+
+
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| validator `indexed` | address | undefined |
+| reason  | string | undefined |
 
 
 

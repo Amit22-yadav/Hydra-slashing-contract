@@ -35,6 +35,15 @@ import {Staking, IStaking} from "./Staking.sol";
     mapping(uint256 => uint256) public distributedRewardPerEpoch;
     /// @notice Slashing contract instance
     Slashing public slashingContract;
+    /// @notice Mapping to track slashed amounts per validator
+    mapping(address => uint256) public slashedAmounts;
+    /// @notice Mapping to track if a validator has been slashed (prevents double slashing)
+    mapping(address => bool) private _hasBeenSlashed;
+
+    // _______________ Events _______________
+
+    /// @notice Emitted when a validator is slashed
+    event ValidatorSlashed(address indexed validator, uint256 amount, string reason);
 
     // _______________ Initializer _______________
 
@@ -126,8 +135,23 @@ import {Staking, IStaking} from "./Staking.sol";
      * @param validator The address of the validator to slash
      * @param reason The reason for slashing
      */
-    function slashValidator(address validator, string calldata reason) external onlySystemCall {
-        slashingContract.slashValidator(validator, reason);
+    function slashValidator(address validator, string calldata reason) external onlySystemCall nonReentrant {
+        require(validator != address(0), "Invalid validator address");
+        require(stakeOf(validator) > 0, "No stake to slash");
+        require(!_hasBeenSlashed[validator], "Validator already slashed");
+        require(bytes(reason).length <= 100, "Reason string too long");
+
+        // Calculate slash amount (50% of validator's stake)
+        uint256 slashAmount = stakeOf(validator) / 2;
+        
+        // Remove the slashed amount from validator's stake
+        _unstake(validator, slashAmount);
+        
+        // Update slashed amounts tracking
+        slashedAmounts[validator] += slashAmount;
+        _hasBeenSlashed[validator] = true;
+        
+        emit ValidatorSlashed(validator, slashAmount, reason);
     }
 
     /**
@@ -136,7 +160,16 @@ import {Staking, IStaking} from "./Staking.sol";
      * @return The total amount slashed
      */
     function getSlashedAmount(address validator) external view returns (uint256) {
-        return slashingContract.getSlashedAmount(validator);
+        return slashedAmounts[validator];
+    }
+
+    /**
+     * @notice Returns whether a validator has been slashed
+     * @param validator The address of the validator
+     * @return True if the validator has been slashed
+     */
+    function hasBeenSlashed(address validator) external view returns (bool) {
+        return _hasBeenSlashed[validator];
     }
 
     // _______________ Public functions _______________

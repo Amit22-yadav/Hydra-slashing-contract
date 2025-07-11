@@ -146,6 +146,23 @@ Unstakes amount for sender. Claims rewards beforehand.
 |---|---|---|
 | amount | uint256 | Amount to unstake |
 
+### unstakeFor
+
+```solidity
+function unstakeFor(address staker, uint256 amount) external nonpayable
+```
+
+Internal function to unstake on behalf of a staker
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| staker | address | The address of the staker |
+| amount | uint256 | The amount to unstake |
+
 ### withdraw
 
 ```solidity

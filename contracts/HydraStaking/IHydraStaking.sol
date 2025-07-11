@@ -38,6 +38,27 @@ interface IHydraStaking is IDelegatedStaking, ILiquidStaking, IPenalizeableStaki
      */
     function recoverEjectedValidator(address account) external;
 
+    /**
+     * @notice Slashes a validator's stake for misbehavior
+     * @param validator The address of the validator to slash
+     * @param reason The reason for slashing
+     */
+    function slashValidator(address validator, string calldata reason) external;
+
+    /**
+     * @notice Returns the slashed amount for a validator
+     * @param validator The address of the validator
+     * @return The total amount slashed
+     */
+    function getSlashedAmount(address validator) external view returns (uint256);
+
+    /**
+     * @notice Returns whether a validator has been slashed
+     * @param validator The address of the validator
+     * @return True if the validator has been slashed
+     */
+    function hasBeenSlashed(address validator) external view returns (bool);
+
     // _______________ Public functions _______________
 
     /**

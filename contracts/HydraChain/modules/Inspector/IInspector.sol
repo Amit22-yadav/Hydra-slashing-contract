@@ -5,11 +5,19 @@ import {IValidatorManager} from "../ValidatorManager/IValidatorManager.sol";
 
 interface IInspector is IValidatorManager {
     event ValidatorBanned(address indexed validator);
+    event ValidatorSlashed(address indexed validator, string reason);
 
     error NoBanSubject();
     error NoInitiateBanSubject();
     error BanAlreadyInitiated();
     error NoBanInitiated();
+
+    /**
+     * @notice Slashes a validator for double-signing or other misbehavior
+     * @param validator Address of the validator to slash
+     * @param reason Reason for slashing
+     */
+    function slashValidator(address validator, string calldata reason) external;
 
     /**
      * @notice Set the penalty amount for the banned validators
@@ -59,6 +67,13 @@ interface IInspector is IValidatorManager {
      * @return Returns true if the ban is initiated
      */
     function banIsInitiated(address account) external view returns (bool);
+
+    /**
+     * @notice Returns whether a validator has been slashed
+     * @param validator The address of the validator
+     * @return True if the validator has been slashed
+     */
+    function hasBeenSlashed(address validator) external view returns (bool);
 
     // _______________ Public functions _______________
 

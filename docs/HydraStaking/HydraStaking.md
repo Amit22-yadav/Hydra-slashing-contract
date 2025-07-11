@@ -409,6 +409,28 @@ function getRoleAdmin(bytes32 role) external view returns (bytes32)
 |---|---|---|
 | _0 | bytes32 | undefined |
 
+### getSlashedAmount
+
+```solidity
+function getSlashedAmount(address validator) external view returns (uint256)
+```
+
+Returns the slashed amount for a validator
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| validator | address | The address of the validator |
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | uint256 | The total amount slashed |
+
 ### getStakingRewardsHistoryValues
 
 ```solidity
@@ -447,6 +469,28 @@ function grantRole(bytes32 role, address account) external nonpayable
 |---|---|---|
 | role | bytes32 | undefined |
 | account | address | undefined |
+
+### hasBeenSlashed
+
+```solidity
+function hasBeenSlashed(address validator) external view returns (bool)
+```
+
+Returns whether a validator has been slashed
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| validator | address | The address of the validator |
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | bool | True if the validator has been slashed |
 
 ### hasRole
 
@@ -491,7 +535,7 @@ function hydraChainContract() external view returns (contract IHydraChain)
 ### initialize
 
 ```solidity
-function initialize(StakerInit[] initialStakers, uint256 newMinStake, address governance, address aprCalculatorAddr, address hydraChainAddr, address hydraDelegationAddr, address rewardWalletAddr, address liquidToken) external nonpayable
+function initialize(StakerInit[] initialStakers, uint256 newMinStake, address governance, address aprCalculatorAddr, address hydraChainAddr, address hydraDelegationAddr, address rewardWalletAddr, address liquidToken, address slashingAddr) external nonpayable
 ```
 
 
@@ -510,6 +554,7 @@ function initialize(StakerInit[] initialStakers, uint256 newMinStake, address go
 | hydraDelegationAddr | address | undefined |
 | rewardWalletAddr | address | undefined |
 | liquidToken | address | undefined |
+| slashingAddr | address | undefined |
 
 ### initiatePenalizedFundsWithdrawal
 
@@ -788,6 +833,62 @@ sets a new penalty rate
 |---|---|---|
 | newRate | uint256 | the new penalty rate |
 
+### slashValidator
+
+```solidity
+function slashValidator(address validator, string reason) external nonpayable
+```
+
+Slashes a validator&#39;s stake for misbehavior
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| validator | address | The address of the validator to slash |
+| reason | string | The reason for slashing |
+
+### slashedAmounts
+
+```solidity
+function slashedAmounts(address) external view returns (uint256)
+```
+
+Mapping to track slashed amounts per validator
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | address | undefined |
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | uint256 | undefined |
+
+### slashingContract
+
+```solidity
+function slashingContract() external view returns (contract Slashing)
+```
+
+Slashing contract instance
+
+
+
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | contract Slashing | undefined |
+
 ### stake
 
 ```solidity
@@ -1038,6 +1139,23 @@ Unstakes amount for sender. Claims rewards beforehand.
 | Name | Type | Description |
 |---|---|---|
 | amount | uint256 | Amount to unstake |
+
+### unstakeFor
+
+```solidity
+function unstakeFor(address staker, uint256 amount) external nonpayable
+```
+
+Internal function to unstake on behalf of a staker
+
+*Only callable by system contracts*
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| staker | address | The address of the staker |
+| amount | uint256 | The amount to unstake |
 
 ### vestedStakingPositions
 
@@ -1297,6 +1415,24 @@ event Unstaked(address indexed account, uint256 amount)
 |---|---|---|
 | account `indexed` | address | undefined |
 | amount  | uint256 | undefined |
+
+### ValidatorSlashed
+
+```solidity
+event ValidatorSlashed(address indexed validator, uint256 amount, string reason)
+```
+
+Emitted when a validator is slashed
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| validator `indexed` | address | undefined |
+| amount  | uint256 | undefined |
+| reason  | string | undefined |
 
 ### WithdrawalFinished
 

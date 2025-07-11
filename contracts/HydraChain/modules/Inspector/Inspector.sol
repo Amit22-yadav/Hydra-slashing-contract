@@ -22,6 +22,8 @@ abstract contract Inspector is IInspector, ValidatorManager {
     uint256 public banThreshold;
     /// @notice Mapping of the validators that bans has been initiated for (validator => timestamp)
     mapping(address => uint256) public bansInitiated;
+    /// @notice Mapping to track if a validator has been slashed (prevents double slashing)
+    mapping(address => bool) private _hasBeenSlashed;
 
     // _______________ Initializer _______________
 
@@ -138,6 +140,34 @@ abstract contract Inspector is IInspector, ValidatorManager {
      */
     function banIsInitiated(address validator) external view returns (bool) {
         return bansInitiated[validator] != 0;
+    }
+
+    /**
+     * @inheritdoc IInspector
+     */
+    function hasBeenSlashed(address validator) external view returns (bool) {
+        return _hasBeenSlashed[validator];
+    }
+
+    /**
+     * @inheritdoc IInspector
+     */
+    function slashValidator(address validator, string calldata reason) external {
+        require(validator != address(0), "Invalid validator address");
+        require(validators[validator].status == ValidatorStatus.Active, "Validator not active");
+        require(!_hasBeenSlashed[validator], "Validator already slashed");
+        require(bytes(reason).length <= 100, "Reason string too long");
+
+        // Mark validator as slashed to prevent double slashing
+        _hasBeenSlashed[validator] = true;
+
+        // Slash the validator by calling the staking contract
+        hydraStakingContract.slashValidator(validator, reason);
+
+        // Ban the validator after slashing
+        _ban(validator);
+
+        emit ValidatorSlashed(validator, reason);
     }
 
     // _______________ Public functions _______________
