@@ -39,6 +39,10 @@ import {Staking, IStaking} from "./Staking.sol";
     mapping(address => uint256) public slashedAmounts;
     /// @notice Mapping to track if a validator has been slashed (prevents double slashing)
     mapping(address => bool) private _hasBeenSlashed;
+    /// @notice Mapping to track locked slashed funds per validator
+    mapping(address => uint256) public lockedSlashedAmount;
+    /// @notice Mapping to track unlock timestamp for slashed funds per validator
+    mapping(address => uint256) public lockedSlashedUnlockTime;
 
     // _______________ Events _______________
 
@@ -141,17 +145,37 @@ import {Staking, IStaking} from "./Staking.sol";
         require(!_hasBeenSlashed[validator], "Validator already slashed");
         require(bytes(reason).length <= 100, "Reason string too long");
 
-        // Calculate slash amount (50% of validator's stake)
-        uint256 slashAmount = stakeOf(validator) / 2;
+        // Calculate slash amount based on violation type
+        uint256 slashAmount = stakeOf(validator) / 70; // 70% penalty
         
+        require(slashAmount > 0, "Slash amount is zero");
+
         // Remove the slashed amount from validator's stake
         _unstake(validator, slashAmount);
-        
+
+        // Lock the slashed amount for 30 days
+        lockedSlashedAmount[validator] += slashAmount;
+        lockedSlashedUnlockTime[validator] = block.timestamp + 30 days;
+
         // Update slashed amounts tracking
         slashedAmounts[validator] += slashAmount;
         _hasBeenSlashed[validator] = true;
-        
+
         emit ValidatorSlashed(validator, slashAmount, reason);
+    }
+
+    /**
+     * @notice Allows admin to withdraw locked slashed funds after 30 days
+     * @param validator The address of the validator whose slashed funds to withdraw
+     */
+    function withdrawLockedSlashed(address validator, address to) external onlyGovernance nonReentrant {
+        require(lockedSlashedAmount[validator] > 0, "No locked slashed funds");
+        require(block.timestamp >= lockedSlashedUnlockTime[validator], "Funds are still locked");
+        uint256 amount = lockedSlashedAmount[validator];
+        lockedSlashedAmount[validator] = 0;
+        lockedSlashedUnlockTime[validator] = 0;
+        (bool sent, ) = to.call{value: amount}("");
+        require(sent, "Failed to send locked slashed funds");
     }
 
     /**
