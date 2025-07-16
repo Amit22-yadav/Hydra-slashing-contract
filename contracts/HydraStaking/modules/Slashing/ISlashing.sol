@@ -9,14 +9,4 @@ interface ISlashing {
     /// @param validator The address of the validator to slash
     /// @param reason The reason for slashing
     function slashValidator(address validator, string calldata reason) external;
-
-    /// @notice Returns the slashed amount for a validator
-    /// @param validator The address of the validator
-    /// @return The total amount slashed
-    function getSlashedAmount(address validator) external view returns (uint256);
-
-    /// @notice Returns whether a validator is slashed
-    /// @param validator The address of the validator
-    /// @return True if the validator is slashed
-    function isSlashed(address validator) external view returns (bool);
 } 

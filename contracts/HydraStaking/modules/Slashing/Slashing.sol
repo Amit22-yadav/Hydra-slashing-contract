@@ -3,7 +3,6 @@ pragma solidity 0.8.17;
 
 import {ISlashing} from "./ISlashing.sol";
 import {System} from "../../../common/System/System.sol";
-import {Unauthorized} from "../../../common/Errors.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 interface IInspector {
@@ -11,11 +10,6 @@ interface IInspector {
 }
 
 contract Slashing is ISlashing, System, Initializable {
-    // Mapping to track slashed amounts per validator
-    mapping(address => uint256) private _slashedAmounts;
-    // Mapping to track if a validator is slashed
-    mapping(address => bool) private _isSlashed;
-
     // Reference to the HydraChain contract (Inspector module)
     address public hydraChainContract;
 
@@ -40,15 +34,5 @@ contract Slashing is ISlashing, System, Initializable {
         // Notify Inspector module on HydraChain
         IInspector(hydraChainContract).slashValidator(validator, reason);
         emit ValidatorSlashed(validator, reason);
-    }
-
-    /// @inheritdoc ISlashing
-    function getSlashedAmount(address validator) external view returns (uint256) {
-        return _slashedAmounts[validator];
-    }
-
-    /// @inheritdoc ISlashing
-    function isSlashed(address validator) external view returns (bool) {
-        return _isSlashed[validator];
     }
 } 

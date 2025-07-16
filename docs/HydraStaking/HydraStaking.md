@@ -645,6 +645,50 @@ function liquidityDebts(address) external view returns (int256)
 |---|---|---|
 | _0 | int256 | undefined |
 
+### lockedSlashedAmount
+
+```solidity
+function lockedSlashedAmount(address) external view returns (uint256)
+```
+
+Mapping to track locked slashed funds per validator
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | address | undefined |
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | uint256 | undefined |
+
+### lockedSlashedUnlockTime
+
+```solidity
+function lockedSlashedUnlockTime(address) external view returns (uint256)
+```
+
+Mapping to track unlock timestamp for slashed funds per validator
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | address | undefined |
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | uint256 | undefined |
+
 ### minStake
 
 ```solidity
@@ -1217,6 +1261,23 @@ Withdraws sender&#39;s withdrawable amount to specified address.
 | Name | Type | Description |
 |---|---|---|
 | to | address | Address to withdraw to |
+
+### withdrawLockedSlashed
+
+```solidity
+function withdrawLockedSlashed(address validator, address to) external nonpayable
+```
+
+Allows admin to withdraw locked slashed funds after 30 days
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| validator | address | The address of the validator whose slashed funds to withdraw |
+| to | address | undefined |
 
 ### withdrawWaitPeriod
 

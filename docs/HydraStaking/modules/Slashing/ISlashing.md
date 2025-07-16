@@ -10,50 +10,6 @@
 
 ## Methods
 
-### getSlashedAmount
-
-```solidity
-function getSlashedAmount(address validator) external view returns (uint256)
-```
-
-Returns the slashed amount for a validator
-
-
-
-#### Parameters
-
-| Name | Type | Description |
-|---|---|---|
-| validator | address | The address of the validator |
-
-#### Returns
-
-| Name | Type | Description |
-|---|---|---|
-| _0 | uint256 | The total amount slashed |
-
-### isSlashed
-
-```solidity
-function isSlashed(address validator) external view returns (bool)
-```
-
-Returns whether a validator is slashed
-
-
-
-#### Parameters
-
-| Name | Type | Description |
-|---|---|---|
-| validator | address | The address of the validator |
-
-#### Returns
-
-| Name | Type | Description |
-|---|---|---|
-| _0 | bool | True if the validator is slashed |
-
 ### slashValidator
 
 ```solidity

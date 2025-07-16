@@ -10,23 +10,6 @@
 
 ## Methods
 
-### HYDRA_CHAIN_CONTRACT
-
-```solidity
-function HYDRA_CHAIN_CONTRACT() external view returns (address)
-```
-
-
-
-
-
-
-#### Returns
-
-| Name | Type | Description |
-|---|---|---|
-| _0 | address | undefined |
-
 ### NATIVE_TOKEN_CONTRACT
 
 ```solidity
@@ -129,13 +112,30 @@ function VALIDATOR_PKCHECK_PRECOMPILE_GAS() external view returns (uint256)
 |---|---|---|
 | _0 | uint256 | undefined |
 
-### getSlashedAmount
+### hydraChainContract
 
 ```solidity
-function getSlashedAmount(address validator) external view returns (uint256)
+function hydraChainContract() external view returns (address)
 ```
 
-Returns the slashed amount for a validator
+
+
+
+
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | address | undefined |
+
+### initialize
+
+```solidity
+function initialize(address hydraChainAddr) external nonpayable
+```
+
+
 
 
 
@@ -143,35 +143,7 @@ Returns the slashed amount for a validator
 
 | Name | Type | Description |
 |---|---|---|
-| validator | address | The address of the validator |
-
-#### Returns
-
-| Name | Type | Description |
-|---|---|---|
-| _0 | uint256 | The total amount slashed |
-
-### isSlashed
-
-```solidity
-function isSlashed(address validator) external view returns (bool)
-```
-
-Returns whether a validator is slashed
-
-
-
-#### Parameters
-
-| Name | Type | Description |
-|---|---|---|
-| validator | address | The address of the validator |
-
-#### Returns
-
-| Name | Type | Description |
-|---|---|---|
-| _0 | bool | True if the validator is slashed |
+| hydraChainAddr | address | undefined |
 
 ### slashValidator
 
@@ -193,6 +165,22 @@ Called by the system to slash a validator for double-signing.
 
 
 ## Events
+
+### Initialized
+
+```solidity
+event Initialized(uint8 version)
+```
+
+
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| version  | uint8 | undefined |
 
 ### ValidatorSlashed
 
