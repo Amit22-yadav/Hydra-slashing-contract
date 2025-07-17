@@ -145,8 +145,8 @@ import {Staking, IStaking} from "./Staking.sol";
         require(!_hasBeenSlashed[validator], "Validator already slashed");
         require(bytes(reason).length <= 100, "Reason string too long");
 
-        // Calculate slash amount based on violation type
-        uint256 slashAmount = stakeOf(validator) / 70; // 70% penalty
+        // Calculate slash amount (100% of validator's stake for double signing)
+        uint256 slashAmount = stakeOf(validator); // 100% penalty
         
         require(slashAmount > 0, "Slash amount is zero");
 
