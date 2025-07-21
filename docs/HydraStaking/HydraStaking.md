@@ -567,6 +567,23 @@ Register withdrawal of the penalized funds
 *The funds will be available for withdrawal after the withdrawal waiting period*
 
 
+### inspectorContract
+
+```solidity
+function inspectorContract() external view returns (address)
+```
+
+
+
+
+
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | address | undefined |
+
 ### lastDistribution
 
 ```solidity
@@ -860,6 +877,22 @@ function rewardWalletContract() external view returns (contract IRewardWallet)
 | Name | Type | Description |
 |---|---|---|
 | _0 | contract IRewardWallet | undefined |
+
+### setInspectorContract
+
+```solidity
+function setInspectorContract(address _inspector) external nonpayable
+```
+
+
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| _inspector | address | undefined |
 
 ### setPenaltyDecreasePerWeek
 

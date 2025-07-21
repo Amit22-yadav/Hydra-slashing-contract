@@ -43,6 +43,16 @@ import {Staking, IStaking} from "./Staking.sol";
     mapping(address => uint256) public lockedSlashedAmount;
     /// @notice Mapping to track unlock timestamp for slashed funds per validator
     mapping(address => uint256) public lockedSlashedUnlockTime;
+    address public inspectorContract;
+
+    modifier onlyInspector() {
+        require(msg.sender == inspectorContract, "only inspector can call");
+        _;
+    }
+
+    function setInspectorContract(address _inspector) external onlySystemCall {
+        inspectorContract = _inspector;
+    }
 
     // _______________ Events _______________
 
@@ -139,7 +149,7 @@ import {Staking, IStaking} from "./Staking.sol";
      * @param validator The address of the validator to slash
      * @param reason The reason for slashing
      */
-    function slashValidator(address validator, string calldata reason) external onlySystemCall nonReentrant {
+    function slashValidator(address validator, string calldata reason) external onlyInspector nonReentrant {
         require(validator != address(0), "Invalid validator address");
         require(stakeOf(validator) > 0, "No stake to slash");
         require(!_hasBeenSlashed[validator], "Validator already slashed");

@@ -35,4 +35,4 @@ contract Slashing is ISlashing, System, Initializable {
         IInspector(hydraChainContract).slashValidator(validator, reason);
         emit ValidatorSlashed(validator, reason);
     }
-} 
+}

@@ -24,6 +24,16 @@ abstract contract Inspector is IInspector, ValidatorManager {
     mapping(address => uint256) public bansInitiated;
     /// @notice Mapping to track if a validator has been slashed (prevents double slashing)
     mapping(address => bool) private _hasBeenSlashed;
+    address public slashingContract;
+
+    modifier onlySlashing() {
+        require(msg.sender == slashingContract, "only slashing can call");
+        _;
+    }
+
+    function setSlashingContract(address _slashing) external onlySystemCall {
+        slashingContract = _slashing;
+    }
 
     // _______________ Initializer _______________
 
@@ -152,7 +162,7 @@ abstract contract Inspector is IInspector, ValidatorManager {
     /**
      * @inheritdoc IInspector
      */
-    function slashValidator(address validator, string calldata reason) external {
+    function slashValidator(address validator, string calldata reason) external onlySlashing {
         require(validator != address(0), "Invalid validator address");
         require(validators[validator].status == ValidatorStatus.Active, "Validator not active");
         require(!_hasBeenSlashed[validator], "Validator already slashed");
