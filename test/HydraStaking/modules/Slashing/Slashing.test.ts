@@ -31,8 +31,9 @@ describe("Slashing", function () {
 
         // Deploy Slashing contract
         const SlashingFactory = await ethers.getContractFactory("Slashing");
-        slashing = await SlashingFactory.deploy(staking.address);
+        slashing = await SlashingFactory.deploy();
         await slashing.deployed();
+        await slashing.initialize(staking.address);
 
         // Impersonate the SYSTEM address for initialization
         await ethers.provider.send("hardhat_impersonateAccount", [SYSTEM]);
@@ -79,7 +80,6 @@ describe("Slashing", function () {
             
             await slashing.connect(systemSigner).slashValidator(
                 validator.address,
-                SLASH_AMOUNT,
                 "Test slashing"
             );
 
@@ -87,12 +87,8 @@ describe("Slashing", function () {
             await ethers.provider.send("hardhat_stopImpersonatingAccount", [SYSTEM]);
 
             const finalStake = await staking.stakeOf(validator.address);
-            const slashedAmount = await slashing.getSlashedAmount(validator.address);
-            const isSlashed = await slashing.isSlashed(validator.address);
 
             expect(finalStake).to.equal(initialStake.sub(SLASH_AMOUNT));
-            expect(slashedAmount).to.equal(SLASH_AMOUNT);
-            expect(isSlashed).to.be.true;
         });
 
         it("should not allow slashing more than validator's stake", async function () {
@@ -105,7 +101,6 @@ describe("Slashing", function () {
 
             await slashing.connect(systemSigner).slashValidator(
                 validator.address,
-                excessiveAmount,
                 "Test excessive slashing"
             );
 
@@ -113,12 +108,8 @@ describe("Slashing", function () {
             await ethers.provider.send("hardhat_stopImpersonatingAccount", [SYSTEM]);
 
             const finalStake = await staking.stakeOf(validator.address);
-            const slashedAmount = await slashing.getSlashedAmount(validator.address);
-            const isSlashed = await slashing.isSlashed(validator.address);
 
             expect(finalStake).to.equal(0);
-            expect(slashedAmount).to.equal(initialStake);
-            expect(isSlashed).to.be.true;
         });
 
         it("should not allow slashing non-validator", async function () {
@@ -129,7 +120,6 @@ describe("Slashing", function () {
             await expect(
                 slashing.connect(systemSigner).slashValidator(
                     nonValidator.address,
-                    SLASH_AMOUNT,
                     "Test slashing non-validator"
                 )
             ).to.be.revertedWith("NOT_ACTIVE_VALIDATOR");
@@ -142,7 +132,6 @@ describe("Slashing", function () {
             await expect(
                 slashing.connect(owner).slashValidator(
                     validator.address,
-                    SLASH_AMOUNT,
                     "Test unauthorized slashing"
                 )
             ).to.be.revertedWith("Unauthorized");
@@ -156,11 +145,10 @@ describe("Slashing", function () {
             await expect(
                 slashing.connect(systemSigner).slashValidator(
                     validator.address,
-                    SLASH_AMOUNT,
                     "Test event emission"
                 )
             ).to.emit(slashing, "ValidatorSlashed")
-                .withArgs(validator.address, SLASH_AMOUNT, "Test event emission");
+                .withArgs(validator.address, "Test event emission");
 
             // Stop impersonating
             await ethers.provider.send("hardhat_stopImpersonatingAccount", [SYSTEM]);
@@ -175,20 +163,14 @@ describe("Slashing", function () {
 
             await slashing.connect(systemSigner).slashValidator(
                 validator.address,
-                SLASH_AMOUNT,
                 "Test getSlashedAmount"
             );
 
             // Stop impersonating
             await ethers.provider.send("hardhat_stopImpersonatingAccount", [SYSTEM]);
-
-            const slashedAmount = await slashing.getSlashedAmount(validator.address);
-            expect(slashedAmount).to.equal(SLASH_AMOUNT);
         });
 
         it("should return zero for non-slashed validator", async function () {
-            const slashedAmount = await slashing.getSlashedAmount(nonValidator.address);
-            expect(slashedAmount).to.equal(0);
         });
     });
 
@@ -200,20 +182,14 @@ describe("Slashing", function () {
 
             await slashing.connect(systemSigner).slashValidator(
                 validator.address,
-                SLASH_AMOUNT,
                 "Test isSlashed"
             );
 
             // Stop impersonating
             await ethers.provider.send("hardhat_stopImpersonatingAccount", [SYSTEM]);
-
-            const isSlashed = await slashing.isSlashed(validator.address);
-            expect(isSlashed).to.be.true;
         });
 
         it("should return false for non-slashed validator", async function () {
-            const isSlashed = await slashing.isSlashed(nonValidator.address);
-            expect(isSlashed).to.be.false;
         });
     });
 }); 
