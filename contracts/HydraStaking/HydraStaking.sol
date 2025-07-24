@@ -1,7 +1,17 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.17;
+pragma solidity ^0.8.17;
 
-import {Unauthorized} from "../common/Errors.sol";
+error OnlyInspector();
+error InvalidValidatorAddress();
+error NoStakeToSlash();
+error AlreadySlashed();
+error ReasonTooLong();
+error SlashAmountZero();
+error NoLockedSlashedFunds();
+error FundsStillLocked();
+error SendFailed();
+error NotBanInitiated();
+
 import {System} from "../common/System/System.sol";
 import {SafeMathUint} from "./../common/libs/SafeMathUint.sol";
 import {VestingPosition} from "../common/Vesting/IVesting.sol";
@@ -16,8 +26,8 @@ import {Slashing} from "./modules/Slashing/Slashing.sol";
 import {IHydraStaking, StakerInit} from "./IHydraStaking.sol";
 import {Staking, IStaking} from "./Staking.sol";
 
- contract HydraStaking is
-   IHydraStaking,
+contract HydraStaking is
+    IHydraStaking,
     System,
     RewardWalletConnector,
     Staking,
@@ -46,7 +56,7 @@ import {Staking, IStaking} from "./Staking.sol";
     address public inspectorContract;
 
     modifier onlyInspector() {
-        require(msg.sender == inspectorContract, "only inspector can call");
+        if (msg.sender != inspectorContract) revert OnlyInspector();
         _;
     }
 
@@ -150,15 +160,14 @@ import {Staking, IStaking} from "./Staking.sol";
      * @param reason The reason for slashing
      */
     function slashValidator(address validator, string calldata reason) external onlyInspector nonReentrant {
-        require(validator != address(0), "Invalid validator address");
-        require(stakeOf(validator) > 0, "No stake to slash");
-        require(!_hasBeenSlashed[validator], "Validator already slashed");
-        require(bytes(reason).length <= 100, "Reason string too long");
+        if (validator == address(0)) revert InvalidValidatorAddress();
+        if (stakeOf(validator) == 0) revert NoStakeToSlash();
+        if (_hasBeenSlashed[validator]) revert AlreadySlashed();
+        if (bytes(reason).length > 32) revert ReasonTooLong();
 
         // Calculate slash amount (100% of validator's stake for double signing)
         uint256 slashAmount = stakeOf(validator); // 100% penalty
-        
-        require(slashAmount > 0, "Slash amount is zero");
+        if (slashAmount == 0) revert SlashAmountZero();
 
         // Remove the slashed amount from validator's stake
         _unstake(validator, slashAmount);
@@ -179,13 +188,13 @@ import {Staking, IStaking} from "./Staking.sol";
      * @param validator The address of the validator whose slashed funds to withdraw
      */
     function withdrawLockedSlashed(address validator, address to) external onlyGovernance nonReentrant {
-        require(lockedSlashedAmount[validator] > 0, "No locked slashed funds");
-        require(block.timestamp >= lockedSlashedUnlockTime[validator], "Funds are still locked");
+        if (lockedSlashedAmount[validator] == 0) revert NoLockedSlashedFunds();
+        if (block.timestamp < lockedSlashedUnlockTime[validator]) revert FundsStillLocked();
         uint256 amount = lockedSlashedAmount[validator];
         lockedSlashedAmount[validator] = 0;
         lockedSlashedUnlockTime[validator] = 0;
         (bool sent, ) = to.call{value: amount}("");
-        require(sent, "Failed to send locked slashed funds");
+        if (!sent) revert SendFailed();
     }
 
     /**
@@ -236,7 +245,7 @@ import {Staking, IStaking} from "./Staking.sol";
      * @inheritdoc Staking
      */
     function _stake(address account, uint256 amount) internal override(Staking, LiquidStaking, StateSyncStaking) {
-        if (_isBanInitiated(account)) revert Unauthorized("BAN_INITIATED");
+        if (_isBanInitiated(account)) revert NotBanInitiated();
 
         if (stakeOf(account) == 0) {
             hydraChainContract.activateValidator(account);
@@ -256,7 +265,7 @@ import {Staking, IStaking} from "./Staking.sol";
         override(Staking, VestedStaking, StateSyncStaking, LiquidStaking)
         returns (uint256 stakeLeft, uint256 withdrawAmount)
     {
-        if (_isBanInitiated(account)) revert Unauthorized("BAN_INITIATED");
+        if (_isBanInitiated(account)) revert NotBanInitiated();
 
         (stakeLeft, withdrawAmount) = super._unstake(account, amount);
         if (stakeLeft == 0) {

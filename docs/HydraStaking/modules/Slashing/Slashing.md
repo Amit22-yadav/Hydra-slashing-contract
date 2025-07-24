@@ -203,6 +203,17 @@ Emitted when a validator is slashed
 
 ## Errors
 
+### InvalidValidatorAddress
+
+```solidity
+error InvalidValidatorAddress()
+```
+
+
+
+
+
+
 ### Unauthorized
 
 ```solidity

@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.17;
+pragma solidity ^0.8.17;
 
+error OnlySlashing();
+error InvalidValidatorAddress();
+error ValidatorNotActive();
+error ValidatorAlreadySlashed();
+error ReasonStringTooLong();
 import {IBLS} from "../../../BLS/IBLS.sol";
 import {Unauthorized} from "../../../common/Errors.sol";
 import {PenalizedStakeDistribution} from "../../../HydraStaking/modules/PenalizeableStaking/IPenalizeableStaking.sol";
@@ -27,7 +32,7 @@ abstract contract Inspector is IInspector, ValidatorManager {
     address public slashingContract;
 
     modifier onlySlashing() {
-        require(msg.sender == slashingContract, "only slashing can call");
+        if (msg.sender != slashingContract) revert OnlySlashing();
         _;
     }
 
@@ -71,13 +76,8 @@ abstract contract Inspector is IInspector, ValidatorManager {
      * @inheritdoc IInspector
      */
     function initiateBan(address validator) external {
-        if (bansInitiated[validator] != 0) {
-            revert BanAlreadyInitiated();
-        }
-
-        if (!isSubjectToInitiateBan(validator)) {
-            revert NoInitiateBanSubject();
-        }
+        if (bansInitiated[validator] != 0) revert BanAlreadyInitiated();
+        if (!isSubjectToInitiateBan(validator)) revert NoInitiateBanSubject();
 
         bansInitiated[validator] = block.timestamp;
         hydraStakingContract.temporaryEjectValidator(validator);
@@ -88,9 +88,7 @@ abstract contract Inspector is IInspector, ValidatorManager {
      * @inheritdoc IInspector
      */
     function terminateBanProcedure() external {
-        if (bansInitiated[msg.sender] == 0) {
-            revert NoBanInitiated();
-        }
+        if (bansInitiated[msg.sender] == 0) revert NoBanInitiated();
 
         bansInitiated[msg.sender] = 0;
         _updateParticipation(msg.sender);
@@ -102,9 +100,7 @@ abstract contract Inspector is IInspector, ValidatorManager {
      * @inheritdoc IInspector
      */
     function banValidator(address validator) external {
-        if (!isSubjectToFinishBan(validator)) {
-            revert NoBanSubject();
-        }
+        if (!isSubjectToFinishBan(validator)) revert NoBanSubject();
 
         if (bansInitiated[validator] != 0) {
             bansInitiated[validator] = 0;
@@ -163,10 +159,10 @@ abstract contract Inspector is IInspector, ValidatorManager {
      * @inheritdoc IInspector
      */
     function slashValidator(address validator, string calldata reason) external onlySlashing {
-        require(validator != address(0), "Invalid validator address");
-        require(validators[validator].status == ValidatorStatus.Active, "Validator not active");
-        require(!_hasBeenSlashed[validator], "Validator already slashed");
-        require(bytes(reason).length <= 100, "Reason string too long");
+        if (validator == address(0)) revert InvalidValidatorAddress();
+        if (validators[validator].status != ValidatorStatus.Active) revert ValidatorNotActive();
+        if (_hasBeenSlashed[validator]) revert ValidatorAlreadySlashed();
+        if (bytes(reason).length > 100) revert ReasonStringTooLong();
 
         // Mark validator as slashed to prevent double slashing
         _hasBeenSlashed[validator] = true;

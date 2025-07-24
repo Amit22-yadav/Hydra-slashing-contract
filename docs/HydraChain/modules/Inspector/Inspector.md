@@ -1284,6 +1284,17 @@ error InvalidSignature(address signer)
 |---|---|---|
 | signer | address | undefined |
 
+### InvalidValidatorAddress
+
+```solidity
+error InvalidValidatorAddress()
+```
+
+
+
+
+
+
 ### MaxValidatorsReached
 
 ```solidity
@@ -1339,10 +1350,32 @@ error NoInitiateBanSubject()
 
 
 
+### OnlySlashing
+
+```solidity
+error OnlySlashing()
+```
+
+
+
+
+
+
 ### PreviouslyWhitelisted
 
 ```solidity
 error PreviouslyWhitelisted()
+```
+
+
+
+
+
+
+### ReasonStringTooLong
+
+```solidity
+error ReasonStringTooLong()
 ```
 
 
@@ -1365,6 +1398,28 @@ error Unauthorized(string only)
 | Name | Type | Description |
 |---|---|---|
 | only | string | undefined |
+
+### ValidatorAlreadySlashed
+
+```solidity
+error ValidatorAlreadySlashed()
+```
+
+
+
+
+
+
+### ValidatorNotActive
+
+```solidity
+error ValidatorNotActive()
+```
+
+
+
+
+
 
 ### WhitelistingAlreadyDisabled
 

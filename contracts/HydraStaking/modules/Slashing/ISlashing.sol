@@ -9,4 +9,4 @@ interface ISlashing {
     /// @param validator The address of the validator to slash
     /// @param reason The reason for slashing
     function slashValidator(address validator, string calldata reason) external;
-} 
+}

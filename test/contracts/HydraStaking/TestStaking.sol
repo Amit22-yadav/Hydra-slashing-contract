@@ -13,4 +13,4 @@ abstract contract TestStaking is Staking {
     ) external initializer {
         __Staking_init(newMinStake, governance, aprCalculatorAddr, hydraChainAddr, rewardWalletAddr);
     }
-} 
+}

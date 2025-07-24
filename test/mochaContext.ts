@@ -41,7 +41,7 @@ export interface Fixtures {
       priceOracle: PriceOracle;
       rewardWallet: RewardWallet;
       DAOIncentiveVault: HydraVault;
-      Slashing:Slashing
+      Slashing: Slashing;
     }>;
   };
   initializedHydraChainStateFixture: {

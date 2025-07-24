@@ -142,7 +142,7 @@ async function presetHydraChainStateFixtureFunction(this: Mocha.Context) {
   const priceOracle = await PriceOracleFixtureFunction.bind(this)();
   const rewardWallet = await RewardWalletFixtureFunction.bind(this)();
   const DAOIncentiveVault = await hydraVaultFixtureFunction.bind(this)();
-  const slashing = await (new Slashing__factory(this.signers.admin)).deploy();
+  const slashing = await new Slashing__factory(this.signers.admin).deploy();
   await slashing.deployed();
 
   // Impersonate SYSTEM address to call initialize

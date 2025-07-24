@@ -1567,6 +1567,17 @@ event WithdrawalRegistered(address indexed account, uint256 amount)
 
 ## Errors
 
+### AlreadySlashed
+
+```solidity
+error AlreadySlashed()
+```
+
+
+
+
+
+
 ### DistributeRewardFailed
 
 ```solidity
@@ -1594,10 +1605,32 @@ error FailedToBurnAmount()
 
 
 
+### FundsStillLocked
+
+```solidity
+error FundsStillLocked()
+```
+
+
+
+
+
+
 ### InvalidMinStake
 
 ```solidity
 error InvalidMinStake()
+```
+
+
+
+
+
+
+### InvalidValidatorAddress
+
+```solidity
+error InvalidValidatorAddress()
 ```
 
 
@@ -1627,10 +1660,32 @@ error NoFundsToWithdraw()
 
 
 
+### NoLockedSlashedFunds
+
+```solidity
+error NoLockedSlashedFunds()
+```
+
+
+
+
+
+
 ### NoRewards
 
 ```solidity
 error NoRewards()
+```
+
+
+
+
+
+
+### NoStakeToSlash
+
+```solidity
+error NoStakeToSlash()
 ```
 
 
@@ -1649,10 +1704,65 @@ error NoWithdrawalAvailable()
 
 
 
+### NotBanInitiated
+
+```solidity
+error NotBanInitiated()
+```
+
+
+
+
+
+
+### OnlyInspector
+
+```solidity
+error OnlyInspector()
+```
+
+
+
+
+
+
 ### PenaltyRateOutOfRange
 
 ```solidity
 error PenaltyRateOutOfRange()
+```
+
+
+
+
+
+
+### ReasonTooLong
+
+```solidity
+error ReasonTooLong()
+```
+
+
+
+
+
+
+### SendFailed
+
+```solidity
+error SendFailed()
+```
+
+
+
+
+
+
+### SlashAmountZero
+
+```solidity
+error SlashAmountZero()
 ```
 
 

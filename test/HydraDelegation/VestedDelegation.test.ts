@@ -23,6 +23,20 @@ import {
 } from "../helper";
 
 export function RunVestedDelegationTests(): void {
+  before(async function () {
+    if (!this.signers || !this.signers.governance) {
+      const signers = await hre.ethers.getSigners();
+      this.signers = {
+        ...this.signers,
+        governance: signers[5],
+        validators: [signers[0], signers[1], signers[2], signers[3]],
+        delegator: signers[6],
+        admin: signers[0],
+        accounts: signers,
+      };
+    }
+  });
+
   describe("", async function () {
     before(async function () {
       // validator[2] delegates minDelegation and validator[1] delegates minDelegation.mul(2)

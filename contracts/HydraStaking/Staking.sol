@@ -9,7 +9,7 @@ import {RewardWalletConnector} from "../RewardWallet/RewardWalletConnector.sol";
 import {IStaking, StakingReward} from "./IStaking.sol";
 // import {System} from "../common/System/System.sol";
 
- contract Staking is IStaking, Withdrawal, HydraChainConnector, APRCalculatorConnector, RewardWalletConnector {
+contract Staking is IStaking, Withdrawal, HydraChainConnector, APRCalculatorConnector, RewardWalletConnector {
     // bytes32 public constant SYSTEM_ROLE = keccak256("SYSTEM_ROLE");
 
     /// @notice A constant for the minimum stake limit
