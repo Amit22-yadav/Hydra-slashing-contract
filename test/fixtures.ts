@@ -24,7 +24,6 @@ import {
   INITIAL_PRICE,
   INITIAL_PRICES_TO_REACH_BONUSES,
   SLOW_SMA,
-  SYSTEM,
   VESTING_DURATION_WEEKS,
   WEEK,
 } from "./constants";
@@ -37,6 +36,8 @@ import {
   getCorrectVotingTimestamp,
 } from "./helper";
 import { expect } from "chai";
+
+const SYSTEM = "0xffffFFFfFFffffffffffffffFfFFFfffFFFfFFfE";
 
 // --------------- Deploying Contracts ---------------
 
@@ -141,7 +142,16 @@ async function presetHydraChainStateFixtureFunction(this: Mocha.Context) {
   const priceOracle = await PriceOracleFixtureFunction.bind(this)();
   const rewardWallet = await RewardWalletFixtureFunction.bind(this)();
   const DAOIncentiveVault = await hydraVaultFixtureFunction.bind(this)();
-  const slashing = await (new Slashing__factory(this.signers.admin)).deploy(hydraStaking.address);
+  const slashing = await (new Slashing__factory(this.signers.admin)).deploy();
+  await slashing.deployed();
+
+  // Impersonate SYSTEM address to call initialize
+  await hre.network.provider.request({
+    method: "hardhat_impersonateAccount",
+    params: [SYSTEM],
+  });
+  const systemSigner = await hre.ethers.getSigner(SYSTEM);
+  await slashing.connect(systemSigner).initialize(hydraStaking.address);
 
   return {
     hydraChain,
