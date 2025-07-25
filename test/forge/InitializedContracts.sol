@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.17;
+pragma solidity ^0.8.17;
 
 import "forge-std/Test.sol";
 
@@ -13,6 +13,7 @@ import {LiquidityToken} from "contracts/LiquidityToken/LiquidityToken.sol";
 import {VestingManagerFactory, IVestingManagerFactory} from "contracts/VestingManager/VestingManagerFactory.sol";
 import {HydraVault} from "contracts/HydraVault/HydraVault.sol";
 import {BLS, IBLS} from "contracts/BLS/BLS.sol";
+import {Slashing} from "contracts/HydraStaking/modules/Slashing/Slashing.sol";
 
 /*//////////////////////////////////////////////////////////////////////////
                                 INITIALIZER
@@ -117,6 +118,9 @@ abstract contract InitializedContracts is Test {
             IBLS(address(bls))
         );
 
+        // ⭐️ Deploy Slashing contract
+        Slashing slashing = new Slashing();
+
         // ⭐️ Initialize HydraStaking
         hydraStaking.initialize(
             stakerInit,
@@ -126,7 +130,8 @@ abstract contract InitializedContracts is Test {
             address(hydraChain),
             address(hydraDelegation),
             address(rewardWallet),
-            address(liquidityToken)
+            address(liquidityToken),
+            address(slashing)
         );
 
         // ⭐️ Initialize HydraDelegation

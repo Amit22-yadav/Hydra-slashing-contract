@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.17;
+pragma solidity ^0.8.17;
 
 import "@utils/Test.sol";
 
@@ -161,7 +161,8 @@ contract ValidatorPricesTest_SingleState is SingleState {
         assertEq(headAfter, address(this));
     }
 
-    function testFailInsertSameFromZeroAddress() public {
+    function test_RevertWhen_InsertSameFromZeroAddress() public {
+        vm.expectRevert();
         sortedPriceList.insert(address(0), 100);
     }
 }
