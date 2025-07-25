@@ -35,7 +35,7 @@ describe("Slashing", function () {
       owner.address, // hydraDelegationAddr
       owner.address, // rewardWalletAddr
       owner.address, // daoIncentiveVaultAddr
-      bls.address    // newBls (deployed contract)
+      bls.address // newBls (deployed contract)
     );
 
     // Deploy Slashing contract
@@ -53,9 +53,9 @@ describe("Slashing", function () {
 
   it("should only allow system to initialize", async function () {
     // Try initializing again (should revert with already initialized)
-    await expect(
-      slashing.connect(owner).initialize(inspector.address)
-    ).to.be.revertedWith("Initializable: contract is already initialized");
+    await expect(slashing.connect(owner).initialize(inspector.address)).to.be.revertedWith(
+      "Initializable: contract is already initialized"
+    );
   });
 
   it("should set hydraChainContract correctly", async function () {
@@ -63,9 +63,10 @@ describe("Slashing", function () {
   });
 
   it("should only allow system to call slashValidator", async function () {
-    await expect(
-      slashing.connect(owner).slashValidator(validator.address, "reason")
-    ).to.be.revertedWithCustomError(slashing, "Unauthorized");
+    await expect(slashing.connect(owner).slashValidator(validator.address, "reason")).to.be.revertedWithCustomError(
+      slashing,
+      "Unauthorized"
+    );
   });
 
   it("should revert if validator is zero address", async function () {
