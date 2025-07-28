@@ -53,16 +53,17 @@ export interface Fixtures {
       hydraStaking: HydraStaking;
       liquidToken: LiquidityToken;
       aprCalculator: APRCalculator;
-      vestingManagerFactory: VestingManagerFactory;
-      priceOracle: PriceOracle;
-      rewardWallet: RewardWallet;
-      DAOIncentiveVault: HydraVault;
       validatorInit: {
         addr: string;
         pubkey: [BigNumberish, BigNumberish, BigNumberish, BigNumberish];
         signature: [BigNumberish, BigNumberish];
         stake: BigNumberish;
       };
+      vestingManagerFactory: VestingManagerFactory;
+      priceOracle: PriceOracle;
+      rewardWallet: RewardWallet;
+      DAOIncentiveVault: HydraVault;
+      slashing: Slashing;
     }>;
   };
   initializedWithSpecificBonusesStateFixture: {

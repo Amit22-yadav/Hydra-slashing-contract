@@ -145,7 +145,7 @@ export function RunHydraStakingTests(): void {
       });
 
       it("should revert on re-initialization attempt", async function () {
-        const { hydraChain, hydraDelegation, liquidToken, hydraStaking, aprCalculator, rewardWallet, Slashing } =
+        const { hydraChain, hydraDelegation, liquidToken, hydraStaking, aprCalculator, rewardWallet, slashing } =
           await loadFixture(this.fixtures.initializedHydraChainStateFixture);
 
         await expect(
@@ -159,7 +159,7 @@ export function RunHydraStakingTests(): void {
             hydraDelegation.address,
             rewardWallet.address,
             liquidToken.address,
-            Slashing.address
+            slashing.address
           )
         ).to.be.revertedWith(ERRORS.initialized);
       });

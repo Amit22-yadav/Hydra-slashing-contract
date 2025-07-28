@@ -286,6 +286,7 @@ async function initializedHydraChainStateFixtureFunction(this: Mocha.Context) {
     priceOracle,
     rewardWallet,
     DAOIncentiveVault,
+    slashing,
   };
 }
 
