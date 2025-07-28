@@ -552,24 +552,26 @@ export function RunInspectorTests(): void {
     });
 
     it("should revert stake when ban in initiated", async function () {
-      const { hydraChain, hydraStaking } = await loadFixture(this.fixtures.banInitiatedFixtureFunction);
+      const { hydraChain, hydraStaking, inBanProcessValidator } = await loadFixture(
+        this.fixtures.banInitiatedFixtureFunction
+      );
 
-      expect(await hydraChain.bansInitiated(this.signers.validators[0].address)).to.not.be.equal(0);
+      expect(await hydraChain.bansInitiated(inBanProcessValidator.address)).to.not.be.equal(0);
 
-      await expect(hydraStaking.connect(this.signers.validators[0]).stake({ value: this.minStake }))
+      await expect(hydraStaking.connect(inBanProcessValidator).stake({ value: this.minStake }))
         .to.be.revertedWithCustomError(hydraStaking, "Unauthorized")
         .withArgs("BAN_INITIATED");
     });
 
     it("should revert unstake when ban in initiated", async function () {
-      const { hydraChain, hydraStaking } = await loadFixture(this.fixtures.banInitiatedFixtureFunction);
+      const { hydraChain, hydraStaking, inBanProcessValidator } = await loadFixture(
+        this.fixtures.banInitiatedFixtureFunction
+      );
 
-      expect(await hydraChain.bansInitiated(this.signers.validators[0].address)).to.not.be.equal(0);
+      expect(await hydraChain.bansInitiated(inBanProcessValidator.address)).to.not.be.equal(0);
 
       await expect(
-        hydraStaking
-          .connect(this.signers.validators[0])
-          .unstake(await hydraStaking.stakeOf(this.signers.validators[0].address))
+        hydraStaking.connect(inBanProcessValidator).unstake(await hydraStaking.stakeOf(inBanProcessValidator.address))
       )
         .to.be.revertedWithCustomError(hydraStaking, "Unauthorized")
         .withArgs("BAN_INITIATED");

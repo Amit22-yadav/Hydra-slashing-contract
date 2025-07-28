@@ -12,6 +12,7 @@ error FundsStillLocked();
 error SendFailed();
 error NotBanInitiated();
 
+import {Unauthorized} from "../common/Errors.sol";
 import {System} from "../common/System/System.sol";
 import {SafeMathUint} from "./../common/libs/SafeMathUint.sol";
 import {VestingPosition} from "../common/Vesting/IVesting.sol";
@@ -245,7 +246,7 @@ contract HydraStaking is
      * @inheritdoc Staking
      */
     function _stake(address account, uint256 amount) internal override(Staking, LiquidStaking, StateSyncStaking) {
-        if (_isBanInitiated(account)) revert NotBanInitiated();
+        if (_isBanInitiated(account)) revert Unauthorized("BAN_INITIATED");
 
         if (stakeOf(account) == 0) {
             hydraChainContract.activateValidator(account);
@@ -265,7 +266,7 @@ contract HydraStaking is
         override(Staking, VestedStaking, StateSyncStaking, LiquidStaking)
         returns (uint256 stakeLeft, uint256 withdrawAmount)
     {
-        if (_isBanInitiated(account)) revert NotBanInitiated();
+        if (_isBanInitiated(account)) revert Unauthorized("BAN_INITIATED");
 
         (stakeLeft, withdrawAmount) = super._unstake(account, amount);
         if (stakeLeft == 0) {

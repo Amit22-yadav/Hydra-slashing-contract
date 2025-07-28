@@ -7,7 +7,7 @@ import { ERRORS, WEEK } from "../constants";
 export function RunWithdrawalTests(): void {
   describe("", function () {
     it("should fail the withdrawal", async function () {
-      const { hydraChain, unstakedValidator, hydraStaking} = await loadFixture(this.fixtures.withdrawableFixture);
+      const { hydraChain, unstakedValidator, hydraStaking } = await loadFixture(this.fixtures.withdrawableFixture);
 
       const validator = await hydraChain.getValidator(unstakedValidator.address);
       const balanceAfterUnstake = this.minStake.mul(2).sub(this.minStake.div(2));

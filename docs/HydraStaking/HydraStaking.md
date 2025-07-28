@@ -1704,17 +1704,6 @@ error NoWithdrawalAvailable()
 
 
 
-### NotBanInitiated
-
-```solidity
-error NotBanInitiated()
-```
-
-
-
-
-
-
 ### OnlyInspector
 
 ```solidity
