@@ -226,6 +226,7 @@ export interface Fixtures {
       vestingManagerFactory: VestingManagerFactory;
       aprCalculator: APRCalculator;
       rewardWallet: RewardWallet;
+      slashing: Slashing;
     }>;
   };
   delegatedFixture: {

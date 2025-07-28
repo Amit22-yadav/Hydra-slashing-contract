@@ -3,6 +3,7 @@
 /* eslint-disable no-undef */
 import { loadFixture, time } from "@nomicfoundation/hardhat-network-helpers";
 import * as hre from "hardhat";
+import { ethers } from "hardhat";
 
 import * as mcl from "../ts/mcl";
 import {
@@ -186,6 +187,11 @@ async function initializedHydraChainStateFixtureFunction(this: Mocha.Context) {
     DAOIncentiveVault,
   } = await loadFixture(this.fixtures.presetHydraChainStateFixture);
 
+  // Deploy and initialize Slashing contract
+  const slashing = await new Slashing__factory(this.signers.admin).deploy();
+  await slashing.deployed();
+  await slashing.connect(this.signers.system).initialize(hydraStaking.address);
+
   await mcl.init();
   const validatorBls = generateValidatorBls(this.signers.admin);
   const validatorInit = {
@@ -238,7 +244,7 @@ async function initializedHydraChainStateFixtureFunction(this: Mocha.Context) {
       hydraDelegation.address,
       rewardWallet.address,
       liquidToken.address,
-      ""
+      slashing.address
     );
 
   await hydraDelegation
@@ -843,6 +849,10 @@ async function withdrawableFixtureFunction(this: Mocha.Context) {
   await time.increase(WEEK);
   await hydraStaking.connect(this.signers.validators[2]).stake({ value: this.minStake.mul(2) });
 
+  // Deploy Slashing contract
+  const slashingFactory = new Slashing__factory(this.signers.admin);
+  const slashing = await slashingFactory.deploy();
+
   return {
     hydraChain,
     systemHydraChain,
@@ -855,6 +865,7 @@ async function withdrawableFixtureFunction(this: Mocha.Context) {
     vestingManagerFactory,
     aprCalculator,
     rewardWallet,
+    slashing,
   };
 }
 
