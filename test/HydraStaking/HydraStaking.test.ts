@@ -44,7 +44,7 @@ export function RunHydraStakingTests(): void {
       });
 
       it("should have zero total supply if we pass no validators", async function () {
-        const { hydraStaking, hydraDelegation, hydraChain, liquidToken, aprCalculator, rewardWallet } =
+        const { hydraStaking, hydraDelegation, hydraChain, liquidToken, aprCalculator, rewardWallet, Slashing } =
           await loadFixture(this.fixtures.presetHydraChainStateFixture);
 
         // initialize: because we make external calls to the HydraDelegation, which is set into the initializer (we pass no stakers)
@@ -59,14 +59,14 @@ export function RunHydraStakingTests(): void {
             hydraDelegation.address,
             rewardWallet.address,
             liquidToken.address,
-            ""
+            Slashing.address
           );
 
         expect(await hydraStaking.totalBalance(), "totalSupply").to.equal(0);
       });
 
       it("should revert when initialized without system call", async function () {
-        const { hydraChain, liquidToken, hydraStaking, hydraDelegation, aprCalculator, rewardWallet } =
+        const { hydraChain, liquidToken, hydraStaking, hydraDelegation, aprCalculator, rewardWallet, Slashing } =
           await loadFixture(this.fixtures.presetHydraChainStateFixture);
 
         await expect(
@@ -80,7 +80,7 @@ export function RunHydraStakingTests(): void {
             hydraDelegation.address,
             rewardWallet.address,
             liquidToken.address,
-            ""
+            Slashing.address
           )
         )
           .to.be.revertedWithCustomError(hydraChain, ERRORS.unauthorized.name)
@@ -88,7 +88,7 @@ export function RunHydraStakingTests(): void {
       });
 
       it("should revert if minStake is too low", async function () {
-        const { hydraStaking, hydraDelegation, hydraChain, liquidToken, aprCalculator, rewardWallet } =
+        const { hydraStaking, hydraDelegation, hydraChain, liquidToken, aprCalculator, rewardWallet, Slashing } =
           await loadFixture(this.fixtures.presetHydraChainStateFixture);
 
         await expect(
@@ -102,13 +102,13 @@ export function RunHydraStakingTests(): void {
             hydraDelegation.address,
             rewardWallet.address,
             liquidToken.address,
-            ""
+            Slashing.address
           )
         ).to.be.revertedWithCustomError(hydraStaking, "InvalidMinStake");
       });
 
       it("should initialize successfully", async function () {
-        const { hydraChain, hydraDelegation, liquidToken, hydraStaking, aprCalculator, rewardWallet } =
+        const { hydraChain, hydraDelegation, liquidToken, hydraStaking, aprCalculator, rewardWallet, Slashing } =
           await loadFixture(this.fixtures.initializedHydraChainStateFixture);
 
         expect(await hydraStaking.minStake(), "minStake").to.equal(this.minStake);
@@ -145,7 +145,7 @@ export function RunHydraStakingTests(): void {
       });
 
       it("should revert on re-initialization attempt", async function () {
-        const { hydraChain, hydraDelegation, liquidToken, hydraStaking, aprCalculator, rewardWallet } =
+        const { hydraChain, hydraDelegation, liquidToken, hydraStaking, aprCalculator, rewardWallet, Slashing } =
           await loadFixture(this.fixtures.initializedHydraChainStateFixture);
 
         await expect(
@@ -159,7 +159,7 @@ export function RunHydraStakingTests(): void {
             hydraDelegation.address,
             rewardWallet.address,
             liquidToken.address,
-            ""
+            Slashing.address
           )
         ).to.be.revertedWith(ERRORS.initialized);
       });

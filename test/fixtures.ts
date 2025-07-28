@@ -304,6 +304,11 @@ async function initializedWithSpecificBonusesStateFixtureFunction(this: Mocha.Co
     DAOIncentiveVault,
   } = await loadFixture(this.fixtures.presetHydraChainStateFixture);
 
+  // Deploy and initialize Slashing contract
+  const slashing = await new Slashing__factory(this.signers.admin).deploy();
+  await slashing.deployed();
+  await slashing.connect(this.signers.system).initialize(hydraStaking.address);
+
   await mcl.init();
   const validatorBls = generateValidatorBls(this.signers.admin);
   const validatorInit = {
@@ -353,7 +358,7 @@ async function initializedWithSpecificBonusesStateFixtureFunction(this: Mocha.Co
       hydraDelegation.address,
       rewardWallet.address,
       liquidToken.address,
-      ""
+      slashing.address
     );
 
   await hydraDelegation
