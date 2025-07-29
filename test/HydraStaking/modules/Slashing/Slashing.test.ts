@@ -17,6 +17,12 @@ describe("Slashing", function () {
     inspector = await InspectorFactory.deploy();
     await inspector.deployed();
 
+    // Fund SYSTEM account before impersonating
+    await owner.sendTransaction({
+      to: SYSTEM,
+      value: ethers.utils.parseEther("10")
+    });
+
     // Impersonate SYSTEM for initialization
     await ethers.provider.send("hardhat_impersonateAccount", [SYSTEM]);
     systemSigner = await ethers.getSigner(SYSTEM);
@@ -70,6 +76,12 @@ describe("Slashing", function () {
   });
 
   it("should revert if validator is zero address", async function () {
+    // Fund SYSTEM account before impersonating
+    await owner.sendTransaction({
+      to: SYSTEM,
+      value: ethers.utils.parseEther("10")
+    });
+
     await ethers.provider.send("hardhat_impersonateAccount", [SYSTEM]);
     const systemSigner = await ethers.getSigner(SYSTEM);
 
@@ -81,6 +93,12 @@ describe("Slashing", function () {
   });
 
   it("should call Inspector and emit event", async function () {
+    // Fund SYSTEM account before impersonating
+    await owner.sendTransaction({
+      to: SYSTEM,
+      value: ethers.utils.parseEther("10")
+    });
+
     await ethers.provider.send("hardhat_impersonateAccount", [SYSTEM]);
     const systemSigner = await ethers.getSigner(SYSTEM);
 
