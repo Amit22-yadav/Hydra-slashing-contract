@@ -20,7 +20,7 @@ describe("Slashing", function () {
     // Fund SYSTEM account before impersonating
     await owner.sendTransaction({
       to: SYSTEM,
-      value: ethers.utils.parseEther("10")
+      value: ethers.utils.parseEther("10"),
     });
 
     // Impersonate SYSTEM for initialization
@@ -79,7 +79,7 @@ describe("Slashing", function () {
     // Fund SYSTEM account before impersonating
     await owner.sendTransaction({
       to: SYSTEM,
-      value: ethers.utils.parseEther("10")
+      value: ethers.utils.parseEther("10"),
     });
 
     await ethers.provider.send("hardhat_impersonateAccount", [SYSTEM]);
@@ -96,7 +96,7 @@ describe("Slashing", function () {
     // Fund SYSTEM account before impersonating
     await owner.sendTransaction({
       to: SYSTEM,
-      value: ethers.utils.parseEther("10")
+      value: ethers.utils.parseEther("10"),
     });
 
     await ethers.provider.send("hardhat_impersonateAccount", [SYSTEM]);
