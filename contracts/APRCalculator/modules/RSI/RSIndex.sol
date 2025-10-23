@@ -109,7 +109,7 @@ abstract contract RSIndex is IRSIndex, Price {
      */
     function _setRSI(uint256 rsindex) private {
         uint256 newRsi;
-        if (rsindex > 3999) {
+        if (rsindex > 3499) {
             newRsi = 0;
         } else if (rsindex > 2999) {
             newRsi = 11500;
