@@ -13,10 +13,10 @@
 ### slashValidator
 
 ```solidity
-function slashValidator(address validator, string reason) external nonpayable
+function slashValidator(address validator, IBFTMessage msg1, IBFTMessage msg2, string reason) external nonpayable
 ```
 
-Slashes a validator&#39;s stake for misbehavior
+
 
 
 
@@ -24,8 +24,10 @@ Slashes a validator&#39;s stake for misbehavior
 
 | Name | Type | Description |
 |---|---|---|
-| validator | address | The address of the validator to slash |
-| reason | string | The reason for slashing |
+| validator | address | undefined |
+| msg1 | IBFTMessage | undefined |
+| msg2 | IBFTMessage | undefined |
+| reason | string | undefined |
 
 
 

@@ -112,6 +112,23 @@ function VALIDATOR_PKCHECK_PRECOMPILE_GAS() external view returns (uint256)
 |---|---|---|
 | _0 | uint256 | undefined |
 
+### bls
+
+```solidity
+function bls() external view returns (contract IBLS)
+```
+
+
+
+
+
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | contract IBLS | undefined |
+
 ### hydraChainContract
 
 ```solidity
@@ -145,22 +162,40 @@ function initialize(address hydraChainAddr) external nonpayable
 |---|---|---|
 | hydraChainAddr | address | undefined |
 
-### slashValidator
+### setBLSAddress
 
 ```solidity
-function slashValidator(address validator, string reason) external nonpayable
+function setBLSAddress(address blsAddr) external nonpayable
 ```
 
-Called by the system to slash a validator for double-signing.
 
-*On-chain evidence verification is omitted; assumes consensus nodes have already verified.*
+
+
 
 #### Parameters
 
 | Name | Type | Description |
 |---|---|---|
-| validator | address | Address of the validator to be slashed |
-| reason | string | Reason for slashing (string) |
+| blsAddr | address | undefined |
+
+### slashValidator
+
+```solidity
+function slashValidator(address validator, IBFTMessage msg1, IBFTMessage msg2, string reason) external nonpayable
+```
+
+
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| validator | address | undefined |
+| msg1 | IBFTMessage | undefined |
+| msg2 | IBFTMessage | undefined |
+| reason | string | undefined |
 
 
 
