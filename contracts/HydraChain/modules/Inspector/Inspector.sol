@@ -6,12 +6,21 @@ error InvalidValidatorAddress();
 error ValidatorNotActive();
 error ValidatorAlreadySlashed();
 error ReasonStringTooLong();
+
 import {IBLS} from "../../../BLS/IBLS.sol";
 import {Unauthorized} from "../../../common/Errors.sol";
 import {PenalizedStakeDistribution} from "../../../HydraStaking/modules/PenalizeableStaking/IPenalizeableStaking.sol";
 import {ValidatorManager, ValidatorStatus, ValidatorInit} from "../ValidatorManager/ValidatorManager.sol";
 import {IInspector} from "./IInspector.sol";
 
+/**
+ * @title Inspector
+ * @notice Manages validator lifecycle and banning
+ * @dev Separation of concerns:
+ *      - Inspector: Handles validator status and banning
+ *      - Slashing contract: Handles double-signing evidence and fund management
+ *      - HydraStaking: Handles stake accounting only
+ */
 abstract contract Inspector is IInspector, ValidatorManager {
     /// @notice The penalty that will be taken and burned from the bad validator's staked amount
     uint256 public validatorPenalty;
@@ -27,8 +36,7 @@ abstract contract Inspector is IInspector, ValidatorManager {
     uint256 public banThreshold;
     /// @notice Mapping of the validators that bans has been initiated for (validator => timestamp)
     mapping(address => uint256) public bansInitiated;
-    /// @notice Mapping to track if a validator has been slashed (prevents double slashing)
-    mapping(address => bool) private _hasBeenSlashed;
+    /// @notice Reference to the Slashing contract
     address public slashingContract;
 
     modifier onlySlashing() {
@@ -114,6 +122,26 @@ abstract contract Inspector is IInspector, ValidatorManager {
     }
 
     /**
+     * @notice Called by the Slashing contract after a validator has been slashed for double-signing
+     * @dev This is a notification callback, NOT the slashing logic itself
+     * @param validator Address of the validator that was slashed
+     * @param reason Reason for slashing
+     */
+    function onValidatorSlashed(address validator, string calldata reason) external onlySlashing {
+        if (validator == address(0)) revert InvalidValidatorAddress();
+        if (validators[validator].status != ValidatorStatus.Active) revert ValidatorNotActive();
+        if (bytes(reason).length > 100) revert ReasonStringTooLong();
+
+        // Simply ban the validator - no stake manipulation here
+        // The Slashing contract has already handled all fund management
+        validators[validator].status = ValidatorStatus.Banned;
+        activeValidatorsCount--;
+
+        emit ValidatorBanned(validator);
+        emit ValidatorSlashed(validator, reason);
+    }
+
+    /**
      * @inheritdoc IInspector
      */
     function setValidatorPenalty(uint256 newPenalty) external onlyGovernance {
@@ -146,34 +174,6 @@ abstract contract Inspector is IInspector, ValidatorManager {
      */
     function banIsInitiated(address validator) external view returns (bool) {
         return bansInitiated[validator] != 0;
-    }
-
-    /**
-     * @inheritdoc IInspector
-     */
-    function hasBeenSlashed(address validator) external view returns (bool) {
-        return _hasBeenSlashed[validator];
-    }
-
-    /**
-     * @inheritdoc IInspector
-     */
-    function slashValidator(address validator, string calldata reason) external onlySlashing {
-        if (validator == address(0)) revert InvalidValidatorAddress();
-        if (validators[validator].status != ValidatorStatus.Active) revert ValidatorNotActive();
-        if (_hasBeenSlashed[validator]) revert ValidatorAlreadySlashed();
-        if (bytes(reason).length > 100) revert ReasonStringTooLong();
-
-        // Mark validator as slashed to prevent double slashing
-        _hasBeenSlashed[validator] = true;
-
-        // Slash the validator by calling the staking contract
-        hydraStakingContract.slashValidator(validator, reason);
-
-        // Ban the validator after slashing
-        _ban(validator);
-
-        emit ValidatorSlashed(validator, reason);
     }
 
     // _______________ Public functions _______________
