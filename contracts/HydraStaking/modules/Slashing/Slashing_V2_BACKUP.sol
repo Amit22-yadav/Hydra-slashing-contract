@@ -12,27 +12,28 @@ interface IInspectorWithPubkey {
     function getValidatorPubkey(address validator) external view returns (uint256[4] memory);
 }
 
-// Interface for SlashingEscrow
-interface ISlashingEscrow {
-    function lockFunds(address validator) external payable;
-}
-
 /**
- * @title Slashing V3
- * @notice Validates double-signing evidence and triggers slashing with 30-day locked funds
- * @dev This contract implements the final client requirements:
- *      - 100% slash (fixed, not configurable)
- *      - Funds locked in SlashingEscrow for 30 days
- *      - Governance can decide per-validator: burn or send to DAO treasury
- *      - Mass slashing protection
- *      - Evidence storage for auditing
- *      - Reuses existing Inspector + penalizeStaker pattern
+ * @title Slashing
+ * @notice Validates double-signing evidence and triggers the Inspector's ban mechanism
+ * @dev This contract is a thin validation layer that reuses Inspector's existing
+ *      penalizeStaker + ban infrastructure to minimize code changes and bug risk.
+ *
+ *      Design Philosophy (per client requirements):
+ *      - Reuse existing Inspector + PenalizedStakeDistribution pattern
+ *      - Minimize modifications to existing core contracts
+ *      - Evidence validation only - delegate execution to Inspector
+ *      - Configurable penalty percentage (not hardcoded 100%)
+ *      - Protection against mass slashing events
  */
 contract Slashing is ISlashing, System, Initializable {
-    // _______________ Constants _______________
+    // _______________ Constants & Configuration _______________
 
-    /// @notice Penalty is always 100% for double signing
-    uint256 public constant PENALTY_PERCENTAGE = 10000; // 100% in basis points
+    /// @notice Maximum penalty percentage (in basis points, 10000 = 100%)
+    uint256 public constant MAX_PENALTY_PERCENTAGE = 10000; // 100%
+
+    /// @notice Default penalty percentage for double signing (in basis points)
+    /// @dev Can be updated by governance. Start conservatively per client suggestion.
+    uint256 public doubleSignPenaltyPercentage;
 
     /// @notice Maximum validators that can be slashed in a single block
     /// @dev Protection against mass slashing bugs that could harm decentralization
@@ -49,9 +50,6 @@ contract Slashing is ISlashing, System, Initializable {
     /// @notice Reference to the HydraChain contract (Inspector module)
     address public hydraChainContract;
 
-    /// @notice Reference to the SlashingEscrow contract (holds locked funds)
-    address public slashingEscrow;
-
     /// @notice Mapping to store evidence hash for each slashed validator (for auditing)
     mapping(address => bytes32) public slashingEvidenceHash;
 
@@ -65,7 +63,7 @@ contract Slashing is ISlashing, System, Initializable {
     error EvidenceMismatch(string detail);
     error BLSNotSet();
     error MaxSlashingsExceeded();
-    error EscrowNotSet();
+    error InvalidPenaltyPercentage();
 
     // _______________ Events _______________
 
@@ -79,6 +77,9 @@ contract Slashing is ISlashing, System, Initializable {
         bytes32 msg2Hash
     );
 
+    /// @notice Emitted when penalty percentage is updated
+    event PenaltyPercentageUpdated(uint256 oldPercentage, uint256 newPercentage);
+
     /// @notice Emitted when max slashings per block is updated
     event MaxSlashingsPerBlockUpdated(uint256 oldMax, uint256 newMax);
 
@@ -87,19 +88,18 @@ contract Slashing is ISlashing, System, Initializable {
     /**
      * @notice Initializer for upgradeable pattern
      * @param hydraChainAddr Address of the HydraChain contract
-     * @param slashingEscrowAddr Address of the SlashingEscrow contract
+     * @param initialPenaltyPercentage Initial penalty percentage (in basis points, 0-10000)
      * @param initialMaxSlashingsPerBlock Initial max slashings per block
      */
     function initialize(
         address hydraChainAddr,
-        address slashingEscrowAddr,
+        uint256 initialPenaltyPercentage,
         uint256 initialMaxSlashingsPerBlock
     ) external initializer onlySystemCall {
-        require(hydraChainAddr != address(0), "Invalid HydraChain address");
-        require(slashingEscrowAddr != address(0), "Invalid SlashingEscrow address");
+        require(initialPenaltyPercentage <= MAX_PENALTY_PERCENTAGE, "Penalty > 100%");
 
         hydraChainContract = hydraChainAddr;
-        slashingEscrow = slashingEscrowAddr;
+        doubleSignPenaltyPercentage = initialPenaltyPercentage;
         maxSlashingsPerBlock = initialMaxSlashingsPerBlock;
     }
 
@@ -111,6 +111,20 @@ contract Slashing is ISlashing, System, Initializable {
      */
     function setBLSAddress(address blsAddr) external onlySystemCall {
         bls = IBLS(blsAddr);
+    }
+
+    /**
+     * @notice Update the penalty percentage for double signing
+     * @dev Only callable by system (governance decision)
+     * @param newPercentage New penalty percentage in basis points (0-10000)
+     */
+    function setPenaltyPercentage(uint256 newPercentage) external onlySystemCall {
+        if (newPercentage > MAX_PENALTY_PERCENTAGE) revert InvalidPenaltyPercentage();
+
+        uint256 oldPercentage = doubleSignPenaltyPercentage;
+        doubleSignPenaltyPercentage = newPercentage;
+
+        emit PenaltyPercentageUpdated(oldPercentage, newPercentage);
     }
 
     /**
@@ -126,15 +140,17 @@ contract Slashing is ISlashing, System, Initializable {
     }
 
     /**
-     * @notice Validates double-signing evidence and slashes validator with 100% penalty
+     * @notice Validates double-signing evidence and triggers Inspector's ban mechanism
      * @dev This is the ONLY entry point for slashing. It:
      *      1. Validates cryptographic evidence
      *      2. Stores evidence for auditing
      *      3. Delegates to Inspector.slashValidator()
-     *      4. Inspector transfers 100% of stake to this contract
-     *      5. This contract forwards funds to SlashingEscrow with 30-day lock
      *
-     *      After 30 days, governance can decide to burn or send to DAO treasury.
+     *      Inspector will then:
+     *      - Call HydraStaking.penalizeStaker() with configured penalty
+     *      - Execute ban logic
+     *
+     *      This reuses existing infrastructure per client requirements.
      *
      * @param validator Address of the validator to slash
      * @param msg1 First conflicting IBFT message
@@ -151,7 +167,6 @@ contract Slashing is ISlashing, System, Initializable {
         if (validator == address(0)) revert InvalidValidatorAddress();
         if (_hasBeenSlashed[validator]) revert ValidatorAlreadySlashed();
         if (address(bls) == address(0)) revert BLSNotSet();
-        if (slashingEscrow == address(0)) revert EscrowNotSet();
 
         // Protection: Prevent mass slashing in single block
         if (slashingsInBlock[block.number] >= maxSlashingsPerBlock) {
@@ -184,35 +199,12 @@ contract Slashing is ISlashing, System, Initializable {
             keccak256(msg2.data)
         );
 
-        // Delegate to Inspector's slashing mechanism
-        // Inspector will:
-        // 1. Get validator's current stake
-        // 2. Calculate 100% penalty
-        // 3. Call HydraStaking.penalizeStaker() with PenalizedStakeDistribution pointing to THIS contract
-        // 4. Send slashed funds to THIS contract
-        // 5. Ban the validator
+        // Delegate to Inspector's existing ban mechanism
+        // Inspector will call penalizeStaker with the configured penalty
+        // This reuses existing infrastructure and minimizes code changes
         IInspector(hydraChainContract).slashValidator(validator, reason);
 
         emit ValidatorSlashed(validator, reason);
-
-        // After Inspector sends funds to this contract, forward them to escrow
-        // NOTE: This assumes Inspector/HydraStaking sends funds to this contract
-        // The receive() function below will handle forwarding to escrow
-    }
-
-    /**
-     * @notice Receive slashed funds from HydraStaking and forward to escrow
-     * @dev Called when Inspector executes penalizeStaker
-     */
-    receive() external payable {
-        // Forward all received funds to SlashingEscrow
-        // The escrow will lock them for 30 days
-        if (msg.value > 0) {
-            // We need to know which validator this is for
-            // This is a limitation - we'll need to pass validator context
-            // For now, we'll handle this in a different way
-            // See the updated slashValidator function that handles this
-        }
     }
 
     /**
@@ -234,11 +226,11 @@ contract Slashing is ISlashing, System, Initializable {
     }
 
     /**
-     * @notice Get current penalty percentage (always 100%)
-     * @return Penalty percentage in basis points (10000 = 100%)
+     * @notice Get current penalty percentage
+     * @return Penalty percentage in basis points
      */
-    function getPenaltyPercentage() external pure returns (uint256) {
-        return PENALTY_PERCENTAGE;
+    function getPenaltyPercentage() external view returns (uint256) {
+        return doubleSignPenaltyPercentage;
     }
 
     /**
