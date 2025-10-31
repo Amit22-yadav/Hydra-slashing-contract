@@ -4,9 +4,7 @@ pragma solidity ^0.8.17;
 import {ISlashing, IBFTMessage} from "./ISlashing.sol";
 import {System} from "../../../common/System/System.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import {IInspector} from "../../../HydraChain/modules/Inspector/IInspector.sol";
-import {IHydraStaking} from "../../IHydraStaking.sol";
 import {IBLS} from "../../../BLS/IBLS.sol";
 
 // Extend with interface for pubkey access
@@ -16,22 +14,33 @@ interface IInspectorWithPubkey {
 
 /**
  * @title Slashing
- * @notice Handles all slashing logic for validators who commit double-signing
- * @dev This contract is responsible for:
- *      - Validating double-signing evidence
- *      - Verifying BLS signatures
- *      - Managing slashed funds
- *      - Storing evidence for auditing
- *      - Coordinating with Inspector for validator banning
+ * @notice Validates double-signing evidence and triggers the Inspector's ban mechanism
+ * @dev This contract is a thin validation layer that reuses Inspector's existing
+ *      penalizeStaker + ban infrastructure to minimize code changes and bug risk.
+ *
+ *      Design Philosophy (per client requirements):
+ *      - Reuse existing Inspector + PenalizedStakeDistribution pattern
+ *      - Minimize modifications to existing core contracts
+ *      - Evidence validation only - delegate execution to Inspector
+ *      - Configurable penalty percentage (not hardcoded 100%)
+ *      - Protection against mass slashing events
  */
-contract Slashing is ISlashing, System, Initializable, ReentrancyGuardUpgradeable {
-    // _______________ Constants _______________
+contract Slashing is ISlashing, System, Initializable {
+    // _______________ Constants & Configuration _______________
 
-    /// @notice Lock period for slashed funds (30 days)
-    uint256 public constant SLASH_LOCK_PERIOD = 30 days;
+    /// @notice Maximum penalty percentage (in basis points, 10000 = 100%)
+    uint256 public constant MAX_PENALTY_PERCENTAGE = 10000; // 100%
 
-    /// @notice Maximum length for slashing reason
-    uint256 public constant MAX_REASON_LENGTH = 100;
+    /// @notice Default penalty percentage for double signing (in basis points)
+    /// @dev Can be updated by governance. Start conservatively per client suggestion.
+    uint256 public doubleSignPenaltyPercentage;
+
+    /// @notice Maximum validators that can be slashed in a single block
+    /// @dev Protection against mass slashing bugs that could harm decentralization
+    uint256 public maxSlashingsPerBlock;
+
+    /// @notice Tracks slashings per block for protection
+    mapping(uint256 => uint256) public slashingsInBlock;
 
     // _______________ State Variables _______________
 
@@ -41,34 +50,20 @@ contract Slashing is ISlashing, System, Initializable, ReentrancyGuardUpgradeabl
     /// @notice Reference to the HydraChain contract (Inspector module)
     address public hydraChainContract;
 
-    /// @notice Reference to the HydraStaking contract
-    IHydraStaking public hydraStakingContract;
+    /// @notice Mapping to store evidence hash for each slashed validator (for auditing)
+    mapping(address => bytes32) public slashingEvidenceHash;
 
     /// @notice Mapping to track if a validator has been slashed (prevents double slashing)
     mapping(address => bool) private _hasBeenSlashed;
-
-    /// @notice Mapping to track slashed amounts per validator
-    mapping(address => uint256) public slashedAmounts;
-
-    /// @notice Mapping to track locked slashed funds per validator
-    mapping(address => uint256) public lockedSlashedAmount;
-
-    /// @notice Mapping to track unlock timestamp for slashed funds per validator
-    mapping(address => uint256) public lockedSlashedUnlockTime;
-
-    /// @notice Mapping to store evidence hash for each slashed validator (for auditing)
-    mapping(address => bytes32) public slashingEvidenceHash;
 
     // _______________ Custom Errors _______________
 
     error InvalidValidatorAddress();
     error ValidatorAlreadySlashed();
-    error ReasonTooLong();
-    error NoLockedSlashedFunds();
-    error FundsStillLocked();
-    error BurnFailed();
     error EvidenceMismatch(string detail);
     error BLSNotSet();
+    error MaxSlashingsExceeded();
+    error InvalidPenaltyPercentage();
 
     // _______________ Events _______________
 
@@ -82,37 +77,36 @@ contract Slashing is ISlashing, System, Initializable, ReentrancyGuardUpgradeabl
         bytes32 msg2Hash
     );
 
-    /// @notice Emitted when slashed funds are burned
-    event SlashedFundsBurned(address indexed validator, uint256 amount);
+    /// @notice Emitted when penalty percentage is updated
+    event PenaltyPercentageUpdated(uint256 oldPercentage, uint256 newPercentage);
+
+    /// @notice Emitted when max slashings per block is updated
+    event MaxSlashingsPerBlockUpdated(uint256 oldMax, uint256 newMax);
 
     // _______________ Initializer _______________
 
     /**
      * @notice Initializer for upgradeable pattern
      * @param hydraChainAddr Address of the HydraChain contract
-     * @param hydraStakingAddr Address of the HydraStaking contract
+     * @param initialPenaltyPercentage Initial penalty percentage (in basis points, 0-10000)
+     * @param initialMaxSlashingsPerBlock Initial max slashings per block
      */
     function initialize(
         address hydraChainAddr,
-        address hydraStakingAddr
+        uint256 initialPenaltyPercentage,
+        uint256 initialMaxSlashingsPerBlock
     ) external initializer onlySystemCall {
-        __ReentrancyGuard_init();
-        __Slashing_init(hydraChainAddr, hydraStakingAddr);
-    }
+        require(initialPenaltyPercentage <= MAX_PENALTY_PERCENTAGE, "Penalty > 100%");
 
-    // solhint-disable-next-line func-name-mixedcase
-    function __Slashing_init(
-        address hydraChainAddr,
-        address hydraStakingAddr
-    ) internal onlyInitializing {
         hydraChainContract = hydraChainAddr;
-        hydraStakingContract = IHydraStaking(hydraStakingAddr);
+        doubleSignPenaltyPercentage = initialPenaltyPercentage;
+        maxSlashingsPerBlock = initialMaxSlashingsPerBlock;
     }
 
     // _______________ External Functions _______________
 
     /**
-     * @notice Set or update BLS contract address (for upgradeable pattern)
+     * @notice Set or update BLS contract address
      * @param blsAddr Address of the BLS contract
      */
     function setBLSAddress(address blsAddr) external onlySystemCall {
@@ -120,24 +114,64 @@ contract Slashing is ISlashing, System, Initializable, ReentrancyGuardUpgradeabl
     }
 
     /**
-     * @notice Called by the system to slash a validator for double-signing
-     * @dev Validates evidence, verifies BLS signatures, and coordinates slashing
-     * @param validator Address of the validator to be slashed
+     * @notice Update the penalty percentage for double signing
+     * @dev Only callable by system (governance decision)
+     * @param newPercentage New penalty percentage in basis points (0-10000)
+     */
+    function setPenaltyPercentage(uint256 newPercentage) external onlySystemCall {
+        if (newPercentage > MAX_PENALTY_PERCENTAGE) revert InvalidPenaltyPercentage();
+
+        uint256 oldPercentage = doubleSignPenaltyPercentage;
+        doubleSignPenaltyPercentage = newPercentage;
+
+        emit PenaltyPercentageUpdated(oldPercentage, newPercentage);
+    }
+
+    /**
+     * @notice Update the maximum slashings allowed per block
+     * @dev Protection against mass slashing events due to bugs
+     * @param newMax New maximum slashings per block
+     */
+    function setMaxSlashingsPerBlock(uint256 newMax) external onlySystemCall {
+        uint256 oldMax = maxSlashingsPerBlock;
+        maxSlashingsPerBlock = newMax;
+
+        emit MaxSlashingsPerBlockUpdated(oldMax, newMax);
+    }
+
+    /**
+     * @notice Validates double-signing evidence and triggers Inspector's ban mechanism
+     * @dev This is the ONLY entry point for slashing. It:
+     *      1. Validates cryptographic evidence
+     *      2. Stores evidence for auditing
+     *      3. Delegates to Inspector.slashValidator()
+     *
+     *      Inspector will then:
+     *      - Call HydraStaking.penalizeStaker() with configured penalty
+     *      - Execute ban logic
+     *
+     *      This reuses existing infrastructure per client requirements.
+     *
+     * @param validator Address of the validator to slash
      * @param msg1 First conflicting IBFT message
      * @param msg2 Second conflicting IBFT message
-     * @param reason Reason for slashing (string)
+     * @param reason Reason for slashing
      */
     function slashValidator(
         address validator,
         IBFTMessage calldata msg1,
         IBFTMessage calldata msg2,
         string calldata reason
-    ) external onlySystemCall nonReentrant {
-        // Validation checks
+    ) external onlySystemCall {
+        // Protection: Check if already slashed
         if (validator == address(0)) revert InvalidValidatorAddress();
         if (_hasBeenSlashed[validator]) revert ValidatorAlreadySlashed();
-        if (bytes(reason).length > MAX_REASON_LENGTH) revert ReasonTooLong();
         if (address(bls) == address(0)) revert BLSNotSet();
+
+        // Protection: Prevent mass slashing in single block
+        if (slashingsInBlock[block.number] >= maxSlashingsPerBlock) {
+            revert MaxSlashingsExceeded();
+        }
 
         // Validate evidence structure
         _validateEvidence(validator, msg1, msg2);
@@ -152,18 +186,8 @@ contract Slashing is ISlashing, System, Initializable, ReentrancyGuardUpgradeabl
         // Mark as slashed to prevent double slashing
         _hasBeenSlashed[validator] = true;
 
-        // Get validator's stake before slashing
-        uint256 slashAmount = hydraStakingContract.stakeOf(validator);
-        require(slashAmount > 0, "Slashing: No stake to slash");
-
-        // Record slashed amount
-        slashedAmounts[validator] = slashAmount;
-
-        // Unstake from HydraStaking (100% penalty for double signing)
-        hydraStakingContract.unstakeFor(validator, slashAmount);
-
-        // Burn the slashed funds immediately (no lock period)
-        _burnSlashedFunds(slashAmount);
+        // Increment slashing counter for this block
+        slashingsInBlock[block.number]++;
 
         // Emit detailed evidence event
         emit DoubleSignEvidence(
@@ -175,10 +199,11 @@ contract Slashing is ISlashing, System, Initializable, ReentrancyGuardUpgradeabl
             keccak256(msg2.data)
         );
 
-        // Notify Inspector to ban the validator
-        IInspector(hydraChainContract).onValidatorSlashed(validator, reason);
+        // Delegate to Inspector's existing ban mechanism
+        // Inspector will call penalizeStaker with the configured penalty
+        // This reuses existing infrastructure and minimizes code changes
+        IInspector(hydraChainContract).slashValidator(validator, reason);
 
-        // Emit slashing event
         emit ValidatorSlashed(validator, reason);
     }
 
@@ -192,21 +217,28 @@ contract Slashing is ISlashing, System, Initializable, ReentrancyGuardUpgradeabl
     }
 
     /**
-     * @notice Get the slashed amount for a validator
-     * @param validator Address of the validator
-     * @return The total amount slashed
-     */
-    function getSlashedAmount(address validator) external view returns (uint256) {
-        return slashedAmounts[validator];
-    }
-
-    /**
      * @notice Get the evidence hash for a slashed validator
      * @param validator Address of the validator
      * @return The stored evidence hash
      */
     function getEvidenceHash(address validator) external view returns (bytes32) {
         return slashingEvidenceHash[validator];
+    }
+
+    /**
+     * @notice Get current penalty percentage
+     * @return Penalty percentage in basis points
+     */
+    function getPenaltyPercentage() external view returns (uint256) {
+        return doubleSignPenaltyPercentage;
+    }
+
+    /**
+     * @notice Get slashings count for current block
+     * @return Number of slashings in current block
+     */
+    function getSlashingsInCurrentBlock() external view returns (uint256) {
+        return slashingsInBlock[block.number];
     }
 
     // _______________ Internal Functions _______________
@@ -224,32 +256,32 @@ contract Slashing is ISlashing, System, Initializable, ReentrancyGuardUpgradeabl
     ) internal pure {
         // Both messages must be from the validator
         if (msg1.from != validator || msg2.from != validator) {
-            revert EvidenceMismatch("Evidence: from != validator");
+            revert EvidenceMismatch("from != validator");
         }
 
         // Messages must be from the same height
         if (msg1.height != msg2.height) {
-            revert EvidenceMismatch("Evidence: height mismatch");
+            revert EvidenceMismatch("height mismatch");
         }
 
         // Messages must be from the same round
         if (msg1.round != msg2.round) {
-            revert EvidenceMismatch("Evidence: round mismatch");
+            revert EvidenceMismatch("round mismatch");
         }
 
         // Messages must be of the same type
         if (msg1.msgType != msg2.msgType) {
-            revert EvidenceMismatch("Evidence: type mismatch");
+            revert EvidenceMismatch("type mismatch");
         }
 
         // Messages must have different data (this is the conflicting part)
         if (keccak256(msg1.data) == keccak256(msg2.data)) {
-            revert EvidenceMismatch("Evidence: identical message data");
+            revert EvidenceMismatch("identical data");
         }
 
         // Signatures must be different
         if (keccak256(msg1.signature) == keccak256(msg2.signature)) {
-            revert EvidenceMismatch("Evidence: identical signatures");
+            revert EvidenceMismatch("identical signatures");
         }
     }
 
@@ -279,24 +311,10 @@ contract Slashing is ISlashing, System, Initializable, ReentrancyGuardUpgradeabl
 
         // Verify BLS signatures
         (bool ok1, ) = bls.verifySingle(sig1, pubkey, msg1ForBLS);
-        require(ok1, "Evidence: msg1 signature invalid");
+        require(ok1, "msg1 signature invalid");
 
         (bool ok2, ) = bls.verifySingle(sig2, pubkey, msg2ForBLS);
-        require(ok2, "Evidence: msg2 signature invalid");
-    }
-
-    /**
-     * @notice Burn slashed funds by sending to address(0)
-     * @param amount Amount to burn
-     */
-    function _burnSlashedFunds(uint256 amount) internal {
-        if (amount > 0) {
-            // Send to address(0) to effectively burn the funds
-            (bool success, ) = address(0).call{value: amount}("");
-            if (!success) revert BurnFailed();
-
-            emit SlashedFundsBurned(address(0), amount);
-        }
+        require(ok2, "msg2 signature invalid");
     }
 
     // _______________ Gap for Upgradeability _______________
