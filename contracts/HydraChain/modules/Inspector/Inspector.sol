@@ -6,7 +6,7 @@ error InvalidValidatorAddress();
 error ValidatorNotActive();
 error ValidatorAlreadySlashed();
 error ReasonStringTooLong();
-error EscrowNotSet();
+error SlashingNotSet();
 error NoStakeToSlash();
 
 import {IBLS} from "../../../BLS/IBLS.sol";
@@ -15,18 +15,18 @@ import {PenalizedStakeDistribution} from "../../../HydraStaking/modules/Penalize
 import {ValidatorManager, ValidatorStatus, ValidatorInit} from "../ValidatorManager/ValidatorManager.sol";
 import {IInspector} from "./IInspector.sol";
 
-// Interface for SlashingEscrow
-interface ISlashingEscrow {
+// Interface for Slashing contract with lockFunds function
+interface ISlashingWithLock {
     function lockFunds(address validator) external payable;
 }
 
 /**
  * @title Inspector
- * @notice Manages validator lifecycle, banning, and slashing with 30-day escrow
- * @dev Updated to work with SlashingEscrow contract for 30-day locked funds
+ * @notice Manages validator lifecycle, banning, and slashing with 30-day locked funds
+ * @dev Updated to work with unified Slashing contract for 30-day locked funds
  *      Client requirements:
  *      - 100% slash for double signing
- *      - Funds locked in escrow for 30 days
+ *      - Funds locked in Slashing contract for 30 days
  *      - Governance decides after 30 days: burn or send to DAO treasury
  */
 abstract contract Inspector is IInspector, ValidatorManager {
@@ -46,10 +46,8 @@ abstract contract Inspector is IInspector, ValidatorManager {
     mapping(address => uint256) public bansInitiated;
     /// @notice Mapping to track if a validator has been slashed (prevents double slashing)
     mapping(address => bool) private _hasBeenSlashed;
-    /// @notice Reference to the Slashing contract
+    /// @notice Reference to the Slashing contract (handles evidence validation and fund locking)
     address public slashingContract;
-    /// @notice Reference to the SlashingEscrow contract (holds locked funds)
-    address public slashingEscrow;
 
     modifier onlySlashing() {
         if (msg.sender != slashingContract) revert OnlySlashing();
@@ -58,10 +56,6 @@ abstract contract Inspector is IInspector, ValidatorManager {
 
     function setSlashingContract(address _slashing) external onlySystemCall {
         slashingContract = _slashing;
-    }
-
-    function setSlashingEscrow(address _escrow) external onlySystemCall {
-        slashingEscrow = _escrow;
     }
 
     // _______________ Initializer _______________
@@ -138,7 +132,7 @@ abstract contract Inspector is IInspector, ValidatorManager {
     }
 
     /**
-     * @notice Slashes a validator's stake and locks it in escrow for 30 days
+     * @notice Slashes a validator's stake and locks it in Slashing contract for 30 days
      * @dev Called by Slashing contract after evidence validation.
      *
      *      Flow:
@@ -146,10 +140,10 @@ abstract contract Inspector is IInspector, ValidatorManager {
      *      2. Mark validator as slashed
      *      3. Get validator's current stake (100% will be slashed)
      *      4. Use penalizeStaker to transfer funds to THIS contract
-     *      5. Forward funds to SlashingEscrow with lockFunds()
+     *      5. Forward funds to Slashing contract with lockFunds()
      *      6. Ban the validator
      *
-     *      After 30 days, governance can call SlashingEscrow to:
+     *      After 30 days, governance can call Slashing contract to:
      *      - burnLockedFunds(validator) - send to address(0)
      *      - sendToTreasury(validator) - send to DAO treasury
      *
@@ -161,7 +155,7 @@ abstract contract Inspector is IInspector, ValidatorManager {
         if (validators[validator].status != ValidatorStatus.Active) revert ValidatorNotActive();
         if (_hasBeenSlashed[validator]) revert ValidatorAlreadySlashed();
         if (bytes(reason).length > 100) revert ReasonStringTooLong();
-        if (slashingEscrow == address(0)) revert EscrowNotSet();
+        if (slashingContract == address(0)) revert SlashingNotSet();
 
         // Mark validator as slashed to prevent double slashing
         _hasBeenSlashed[validator] = true;
@@ -174,7 +168,7 @@ abstract contract Inspector is IInspector, ValidatorManager {
         uint256 penaltyAmount = currentStake;
 
         // Use existing penalizeStaker pattern to transfer funds to THIS contract
-        // This contract will then forward funds to SlashingEscrow
+        // This contract will then forward funds to Slashing contract
         PenalizedStakeDistribution[] memory distributions = new PenalizedStakeDistribution[](1);
         distributions[0] = PenalizedStakeDistribution({
             account: address(this), // Send to THIS contract first
@@ -185,9 +179,9 @@ abstract contract Inspector is IInspector, ValidatorManager {
         // This will transfer the slashed funds to THIS contract
         hydraStakingContract.penalizeStaker(validator, distributions);
 
-        // Forward the slashed funds to SlashingEscrow with 30-day lock
-        // SlashingEscrow will lock the funds and emit events
-        ISlashingEscrow(slashingEscrow).lockFunds{value: penaltyAmount}(validator);
+        // Forward the slashed funds to Slashing contract with 30-day lock
+        // Slashing contract will lock the funds and emit events
+        ISlashingWithLock(slashingContract).lockFunds{value: penaltyAmount}(validator);
 
         // Ban the validator after slashing
         _ban(validator);
