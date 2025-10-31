@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.17;
+pragma solidity ^0.8.17;
 
 import {IValidatorManager} from "../ValidatorManager/IValidatorManager.sol";
 
@@ -13,11 +13,12 @@ interface IInspector is IValidatorManager {
     error NoBanInitiated();
 
     /**
-     * @notice Slashes a validator for double-signing or other misbehavior
-     * @param validator Address of the validator to slash
+     * @notice Called by the Slashing contract after a validator has been slashed for double-signing
+     * @dev This is a notification callback from the Slashing contract
+     * @param validator Address of the validator that was slashed
      * @param reason Reason for slashing
      */
-    function slashValidator(address validator, string calldata reason) external;
+    function onValidatorSlashed(address validator, string calldata reason) external;
 
     /**
      * @notice Set the penalty amount for the banned validators
@@ -67,13 +68,6 @@ interface IInspector is IValidatorManager {
      * @return Returns true if the ban is initiated
      */
     function banIsInitiated(address account) external view returns (bool);
-
-    /**
-     * @notice Returns whether a validator has been slashed
-     * @param validator The address of the validator
-     * @return True if the validator has been slashed
-     */
-    function hasBeenSlashed(address validator) external view returns (bool);
 
     // _______________ Public functions _______________
 

@@ -12,18 +12,64 @@ struct IBFTMessage {
 }
 
 interface ISlashing {
+    // _______________ Events _______________
+
     /// @notice Emitted when a validator is slashed
     event ValidatorSlashed(address indexed validator, string reason);
 
-    /// @notice Slashes a validator's stake for double-signing with cryptographic evidence
-    /// @param validator The address of the validator to slash
-    /// @param msg1 First conflicting IBFT message
-    /// @param msg2 Second conflicting IBFT message
-    /// @param reason The reason for slashing
+    /// @notice Emitted when double-signing evidence is validated and stored
+    event DoubleSignEvidence(
+        address indexed validator,
+        bytes32 evidenceHash,
+        uint64 height,
+        uint64 round,
+        bytes32 msg1Hash,
+        bytes32 msg2Hash
+    );
+
+    /// @notice Emitted when slashed funds are burned
+    event SlashedFundsBurned(address indexed validator, uint256 amount);
+
+    // _______________ External Functions _______________
+
+    /**
+     * @notice Slashes a validator's stake for double-signing with cryptographic evidence
+     * @param validator The address of the validator to slash
+     * @param msg1 First conflicting IBFT message
+     * @param msg2 Second conflicting IBFT message
+     * @param reason The reason for slashing
+     */
     function slashValidator(
         address validator,
         IBFTMessage calldata msg1,
         IBFTMessage calldata msg2,
         string calldata reason
     ) external;
+
+    /**
+     * @notice Check if a validator has been slashed
+     * @param validator Address of the validator
+     * @return True if the validator has been slashed
+     */
+    function hasBeenSlashed(address validator) external view returns (bool);
+
+    /**
+     * @notice Get the slashed amount for a validator
+     * @param validator Address of the validator
+     * @return The total amount slashed
+     */
+    function getSlashedAmount(address validator) external view returns (uint256);
+
+    /**
+     * @notice Get the evidence hash for a slashed validator
+     * @param validator Address of the validator
+     * @return The stored evidence hash
+     */
+    function getEvidenceHash(address validator) external view returns (bytes32);
+
+    /**
+     * @notice Set or update BLS contract address
+     * @param blsAddr Address of the BLS contract
+     */
+    function setBLSAddress(address blsAddr) external;
 }

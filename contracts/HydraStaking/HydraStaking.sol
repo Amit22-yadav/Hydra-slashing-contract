@@ -2,14 +2,6 @@
 pragma solidity ^0.8.17;
 
 error OnlyInspector();
-error InvalidValidatorAddress();
-error NoStakeToSlash();
-error AlreadySlashed();
-error ReasonTooLong();
-error SlashAmountZero();
-error NoLockedSlashedFunds();
-error FundsStillLocked();
-error SendFailed();
 error NotBanInitiated();
 
 import {Unauthorized} from "../common/Errors.sol";
@@ -44,16 +36,9 @@ contract HydraStaking is
     uint256 public lastDistribution;
     /// @notice Mapping used to keep the paid rewards per epoch
     mapping(uint256 => uint256) public distributedRewardPerEpoch;
-    /// @notice Slashing contract instance
+    /// @notice Slashing contract instance (for reference only)
     Slashing public slashingContract;
-    /// @notice Mapping to track slashed amounts per validator
-    mapping(address => uint256) public slashedAmounts;
-    /// @notice Mapping to track if a validator has been slashed (prevents double slashing)
-    mapping(address => bool) private _hasBeenSlashed;
-    /// @notice Mapping to track locked slashed funds per validator
-    mapping(address => uint256) public lockedSlashedAmount;
-    /// @notice Mapping to track unlock timestamp for slashed funds per validator
-    mapping(address => uint256) public lockedSlashedUnlockTime;
+    /// @notice Inspector contract reference
     address public inspectorContract;
 
     modifier onlyInspector() {
@@ -64,11 +49,6 @@ contract HydraStaking is
     function setInspectorContract(address _inspector) external onlySystemCall {
         inspectorContract = _inspector;
     }
-
-    // _______________ Events _______________
-
-    /// @notice Emitted when a validator is slashed
-    event ValidatorSlashed(address indexed validator, uint256 amount, string reason);
 
     // _______________ Initializer _______________
 
@@ -153,67 +133,6 @@ contract HydraStaking is
      */
     function recoverEjectedValidator(address account) external onlyHydraChain {
         _syncState(account);
-    }
-
-    /**
-     * @notice Slashes a validator's stake for misbehavior
-     * @param validator The address of the validator to slash
-     * @param reason The reason for slashing
-     */
-    function slashValidator(address validator, string calldata reason) external onlyInspector nonReentrant {
-        if (validator == address(0)) revert InvalidValidatorAddress();
-        if (stakeOf(validator) == 0) revert NoStakeToSlash();
-        if (_hasBeenSlashed[validator]) revert AlreadySlashed();
-        if (bytes(reason).length > 32) revert ReasonTooLong();
-
-        // Calculate slash amount (100% of validator's stake for double signing)
-        uint256 slashAmount = stakeOf(validator); // 100% penalty
-        if (slashAmount == 0) revert SlashAmountZero();
-
-        // Remove the slashed amount from validator's stake
-        _unstake(validator, slashAmount);
-
-        // Lock the slashed amount for 30 days
-        lockedSlashedAmount[validator] += slashAmount;
-        lockedSlashedUnlockTime[validator] = block.timestamp + 30 days;
-
-        // Update slashed amounts tracking
-        slashedAmounts[validator] += slashAmount;
-        _hasBeenSlashed[validator] = true;
-
-        emit ValidatorSlashed(validator, slashAmount, reason);
-    }
-
-    /**
-     * @notice Allows admin to withdraw locked slashed funds after 30 days
-     * @param validator The address of the validator whose slashed funds to withdraw
-     */
-    function withdrawLockedSlashed(address validator, address to) external onlyGovernance nonReentrant {
-        if (lockedSlashedAmount[validator] == 0) revert NoLockedSlashedFunds();
-        if (block.timestamp < lockedSlashedUnlockTime[validator]) revert FundsStillLocked();
-        uint256 amount = lockedSlashedAmount[validator];
-        lockedSlashedAmount[validator] = 0;
-        lockedSlashedUnlockTime[validator] = 0;
-        (bool sent, ) = to.call{value: amount}("");
-        if (!sent) revert SendFailed();
-    }
-
-    /**
-     * @notice Returns the slashed amount for a validator
-     * @param validator The address of the validator
-     * @return The total amount slashed
-     */
-    function getSlashedAmount(address validator) external view returns (uint256) {
-        return slashedAmounts[validator];
-    }
-
-    /**
-     * @notice Returns whether a validator has been slashed
-     * @param validator The address of the validator
-     * @return True if the validator has been slashed
-     */
-    function hasBeenSlashed(address validator) external view returns (bool) {
-        return _hasBeenSlashed[validator];
     }
 
     // _______________ Public functions _______________
