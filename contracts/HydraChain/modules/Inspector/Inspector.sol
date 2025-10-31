@@ -12,14 +12,12 @@ import {Unauthorized} from "../../../common/Errors.sol";
 import {PenalizedStakeDistribution} from "../../../HydraStaking/modules/PenalizeableStaking/IPenalizeableStaking.sol";
 import {ValidatorManager, ValidatorStatus, ValidatorInit} from "../ValidatorManager/ValidatorManager.sol";
 import {IInspector} from "./IInspector.sol";
+import {IHydraStaking} from "../../../HydraStaking/IHydraStaking.sol";
 
 /**
  * @title Inspector
- * @notice Manages validator lifecycle and banning
- * @dev Separation of concerns:
- *      - Inspector: Handles validator status and banning
- *      - Slashing contract: Handles double-signing evidence and fund management
- *      - HydraStaking: Handles stake accounting only
+ * @notice Manages validator lifecycle, banning, and slashing
+ * @dev Updated to work with Slashing contract while reusing existing penalizeStaker pattern
  */
 abstract contract Inspector is IInspector, ValidatorManager {
     /// @notice The penalty that will be taken and burned from the bad validator's staked amount
@@ -36,6 +34,8 @@ abstract contract Inspector is IInspector, ValidatorManager {
     uint256 public banThreshold;
     /// @notice Mapping of the validators that bans has been initiated for (validator => timestamp)
     mapping(address => uint256) public bansInitiated;
+    /// @notice Mapping to track if a validator has been slashed (prevents double slashing)
+    mapping(address => bool) private _hasBeenSlashed;
     /// @notice Reference to the Slashing contract
     address public slashingContract;
 
@@ -122,22 +122,51 @@ abstract contract Inspector is IInspector, ValidatorManager {
     }
 
     /**
-     * @notice Called by the Slashing contract after a validator has been slashed for double-signing
-     * @dev This is a notification callback, NOT the slashing logic itself
-     * @param validator Address of the validator that was slashed
+     * @notice Slashes a validator's stake using the existing penalizeStaker pattern
+     * @dev Called by Slashing contract after evidence validation.
+     *      This reuses the existing penalizeStaker + PenalizedStakeDistribution
+     *      pattern to minimize code changes and bug risk.
+     *
+     *      The penalty percentage is read from the Slashing contract.
+     *
+     * @param validator Address of the validator to slash
      * @param reason Reason for slashing
      */
-    function onValidatorSlashed(address validator, string calldata reason) external onlySlashing {
+    function slashValidator(address validator, string calldata reason) external onlySlashing {
         if (validator == address(0)) revert InvalidValidatorAddress();
         if (validators[validator].status != ValidatorStatus.Active) revert ValidatorNotActive();
+        if (_hasBeenSlashed[validator]) revert ValidatorAlreadySlashed();
         if (bytes(reason).length > 100) revert ReasonStringTooLong();
 
-        // Simply ban the validator - no stake manipulation here
-        // The Slashing contract has already handled all fund management
-        validators[validator].status = ValidatorStatus.Banned;
-        activeValidatorsCount--;
+        // Mark validator as slashed to prevent double slashing
+        _hasBeenSlashed[validator] = true;
 
-        emit ValidatorBanned(validator);
+        // Get the validator's current stake
+        uint256 currentStake = hydraStakingContract.stakeOf(validator);
+        require(currentStake > 0, "No stake to slash");
+
+        // Get penalty percentage from Slashing contract
+        // Note: Slashing contract stores percentage in basis points (10000 = 100%)
+        uint256 penaltyPercentage = _getPenaltyPercentage();
+
+        // Calculate penalty amount
+        uint256 penaltyAmount = (currentStake * penaltyPercentage) / 10000;
+
+        // Use existing penalizeStaker pattern
+        // Fund distribution decision needed: burn (address(0)) or DAO treasury?
+        // For now, using address(0) to burn as suggested by client discussion
+        PenalizedStakeDistribution[] memory distributions = new PenalizedStakeDistribution[](1);
+        distributions[0] = PenalizedStakeDistribution({
+            account: address(0), // Burns the penalty
+            amount: penaltyAmount
+        });
+
+        // Reuse existing penalizeStaker infrastructure
+        hydraStakingContract.penalizeStaker(validator, distributions);
+
+        // Ban the validator after slashing
+        _ban(validator);
+
         emit ValidatorSlashed(validator, reason);
     }
 
@@ -174,6 +203,13 @@ abstract contract Inspector is IInspector, ValidatorManager {
      */
     function banIsInitiated(address validator) external view returns (bool) {
         return bansInitiated[validator] != 0;
+    }
+
+    /**
+     * @inheritdoc IInspector
+     */
+    function hasBeenSlashed(address validator) external view returns (bool) {
+        return _hasBeenSlashed[validator];
     }
 
     // _______________ Public functions _______________
@@ -232,6 +268,25 @@ abstract contract Inspector is IInspector, ValidatorManager {
         validators[validator].status = ValidatorStatus.Banned;
 
         emit ValidatorBanned(validator);
+    }
+
+    /**
+     * @dev Get penalty percentage from Slashing contract
+     * @return Penalty percentage in basis points
+     */
+    function _getPenaltyPercentage() private view returns (uint256) {
+        // Call Slashing contract's getPenaltyPercentage()
+        // Using low-level call to avoid import dependency
+        (bool success, bytes memory data) = slashingContract.staticcall(
+            abi.encodeWithSignature("getPenaltyPercentage()")
+        );
+
+        if (success && data.length >= 32) {
+            return abi.decode(data, (uint256));
+        }
+
+        // Fallback to 100% if call fails (should not happen)
+        return 10000;
     }
 
     // slither-disable-next-line unused-state,naming-convention

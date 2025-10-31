@@ -13,12 +13,18 @@ interface IInspector is IValidatorManager {
     error NoBanInitiated();
 
     /**
-     * @notice Called by the Slashing contract after a validator has been slashed for double-signing
-     * @dev This is a notification callback from the Slashing contract
-     * @param validator Address of the validator that was slashed
+     * @notice Slashes a validator for double-signing or other misbehavior
+     * @param validator Address of the validator to slash
      * @param reason Reason for slashing
      */
-    function onValidatorSlashed(address validator, string calldata reason) external;
+    function slashValidator(address validator, string calldata reason) external;
+
+    /**
+     * @notice Returns whether a validator has been slashed
+     * @param validator The address of the validator
+     * @return True if the validator has been slashed
+     */
+    function hasBeenSlashed(address validator) external view returns (bool);
 
     /**
      * @notice Set the penalty amount for the banned validators
