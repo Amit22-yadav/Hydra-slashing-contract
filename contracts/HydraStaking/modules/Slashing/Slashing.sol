@@ -12,19 +12,15 @@ interface IInspectorWithPubkey {
     function getValidatorPubkey(address validator) external view returns (uint256[4] memory);
 }
 
-// Interface for SlashingEscrow
-interface ISlashingEscrow {
-    function lockFunds(address validator) external payable;
-}
-
 /**
  * @title Slashing
- * @notice Validates double-signing evidence and triggers slashing with 30-day locked funds
- * @dev This contract implements the client requirements:
+ * @notice Validates double-signing evidence, slashes validators, and manages 30-day locked funds
+ * @dev This contract implements all slashing requirements in a single contract:
+ *      - Evidence validation and BLS signature verification
  *      - 100% slash (fixed, not configurable)
- *      - Funds locked in SlashingEscrow for 30 days
+ *      - 30-day escrow for locked funds
  *      - Governance can decide per-validator: burn or send to DAO treasury
- *      - Mass slashing protection
+ *      - Mass slashing protection (rate limiting + tombstone cap)
  *      - Evidence storage for auditing
  *      - Reuses existing Inspector + penalizeStaker pattern
  */
@@ -33,6 +29,9 @@ contract Slashing is ISlashing, System, Initializable {
 
     /// @notice Penalty is always 100% for double signing
     uint256 public constant PENALTY_PERCENTAGE = 10000; // 100% in basis points
+
+    /// @notice Lock period before funds can be withdrawn (30 days in seconds)
+    uint256 public constant LOCK_PERIOD = 30 days;
 
     /// @notice Maximum validators that can be slashed in a single block
     /// @dev Protection against mass slashing bugs that could harm decentralization
@@ -49,14 +48,27 @@ contract Slashing is ISlashing, System, Initializable {
     /// @notice Reference to the HydraChain contract (Inspector module)
     address public hydraChainContract;
 
-    /// @notice Reference to the SlashingEscrow contract (holds locked funds)
-    address public slashingEscrow;
+    /// @notice Address that can withdraw funds after lock period (governance)
+    address public governance;
+
+    /// @notice DAO treasury address (optional destination for slashed funds)
+    address public daoTreasury;
 
     /// @notice Mapping to store evidence hash for each slashed validator (for auditing)
     mapping(address => bytes32) public slashingEvidenceHash;
 
     /// @notice Mapping to track if a validator has been slashed (prevents double slashing)
     mapping(address => bool) private _hasBeenSlashed;
+
+    /// @notice Tracks locked funds per validator
+    struct LockedFunds {
+        uint256 amount;          // Amount of slashed stake locked
+        uint256 lockTimestamp;   // When the funds were locked
+        bool withdrawn;          // Whether funds have been withdrawn
+    }
+
+    /// @notice Mapping of validator address to their locked slashed funds
+    mapping(address => LockedFunds) public lockedFunds;
 
     // _______________ Custom Errors _______________
 
@@ -65,7 +77,12 @@ contract Slashing is ISlashing, System, Initializable {
     error EvidenceMismatch(string detail);
     error BLSNotSet();
     error MaxSlashingsExceeded();
-    error EscrowNotSet();
+    error OnlyGovernance();
+    error FundsStillLocked(uint256 unlockTime);
+    error NoLockedFunds();
+    error AlreadyWithdrawn();
+    error InvalidAddress();
+    error TransferFailed();
 
     // _______________ Events _______________
 
@@ -82,24 +99,49 @@ contract Slashing is ISlashing, System, Initializable {
     /// @notice Emitted when max slashings per block is updated
     event MaxSlashingsPerBlockUpdated(uint256 oldMax, uint256 newMax);
 
+    /// @notice Emitted when funds are locked in escrow
+    event FundsLocked(address indexed validator, uint256 amount, uint256 unlockTime);
+
+    /// @notice Emitted when governance burns locked funds
+    event FundsBurned(address indexed validator, uint256 amount, address indexed burnedBy);
+
+    /// @notice Emitted when governance sends funds to DAO treasury
+    event FundsSentToTreasury(address indexed validator, uint256 amount, address indexed treasury);
+
+    /// @notice Emitted when governance address is updated
+    event GovernanceUpdated(address indexed oldGovernance, address indexed newGovernance);
+
+    /// @notice Emitted when DAO treasury address is updated
+    event DaoTreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
+
+    // _______________ Modifiers _______________
+
+    modifier onlyGovernance() {
+        if (msg.sender != governance) revert OnlyGovernance();
+        _;
+    }
+
     // _______________ Initializer _______________
 
     /**
      * @notice Initializer for upgradeable pattern
      * @param hydraChainAddr Address of the HydraChain contract
-     * @param slashingEscrowAddr Address of the SlashingEscrow contract
+     * @param governanceAddr Address of governance (can withdraw after lock period)
+     * @param daoTreasuryAddr Address of DAO treasury (optional destination)
      * @param initialMaxSlashingsPerBlock Initial max slashings per block
      */
     function initialize(
         address hydraChainAddr,
-        address slashingEscrowAddr,
+        address governanceAddr,
+        address daoTreasuryAddr,
         uint256 initialMaxSlashingsPerBlock
     ) external initializer onlySystemCall {
         require(hydraChainAddr != address(0), "Invalid HydraChain address");
-        require(slashingEscrowAddr != address(0), "Invalid SlashingEscrow address");
+        require(governanceAddr != address(0), "Invalid governance address");
 
         hydraChainContract = hydraChainAddr;
-        slashingEscrow = slashingEscrowAddr;
+        governance = governanceAddr;
+        daoTreasury = daoTreasuryAddr; // Can be zero address initially
         maxSlashingsPerBlock = initialMaxSlashingsPerBlock;
     }
 
@@ -132,7 +174,7 @@ contract Slashing is ISlashing, System, Initializable {
      *      2. Stores evidence for auditing
      *      3. Delegates to Inspector.slashValidator()
      *      4. Inspector transfers 100% of stake to this contract
-     *      5. This contract forwards funds to SlashingEscrow with 30-day lock
+     *      5. This contract locks funds internally for 30 days
      *
      *      After 30 days, governance can decide to burn or send to DAO treasury.
      *
@@ -151,7 +193,6 @@ contract Slashing is ISlashing, System, Initializable {
         if (validator == address(0)) revert InvalidValidatorAddress();
         if (_hasBeenSlashed[validator]) revert ValidatorAlreadySlashed();
         if (address(bls) == address(0)) revert BLSNotSet();
-        if (slashingEscrow == address(0)) revert EscrowNotSet();
 
         // Protection: Prevent mass slashing in single block
         if (slashingsInBlock[block.number] >= maxSlashingsPerBlock) {
@@ -189,30 +230,155 @@ contract Slashing is ISlashing, System, Initializable {
         // 1. Get validator's current stake
         // 2. Calculate 100% penalty
         // 3. Call HydraStaking.penalizeStaker() with PenalizedStakeDistribution pointing to THIS contract
-        // 4. Send slashed funds to THIS contract
+        // 4. Send slashed funds to THIS contract (via receive function)
         // 5. Ban the validator
         IInspector(hydraChainContract).slashValidator(validator, reason);
 
         emit ValidatorSlashed(validator, reason);
-
-        // After Inspector sends funds to this contract, forward them to escrow
-        // NOTE: This assumes Inspector/HydraStaking sends funds to this contract
-        // The receive() function below will handle forwarding to escrow
     }
 
     /**
-     * @notice Receive slashed funds from HydraStaking and forward to escrow
-     * @dev Called when Inspector executes penalizeStaker
+     * @notice Lock slashed funds for a validator
+     * @dev Called by Inspector contract during slashing via receive()
+     * @param validator Address of the slashed validator
      */
-    receive() external payable {
-        // Forward all received funds to SlashingEscrow
-        // The escrow will lock them for 30 days
-        if (msg.value > 0) {
-            // We need to know which validator this is for
-            // This is a limitation - we'll need to pass validator context
-            // For now, we'll handle this in a different way
-            // See the updated slashValidator function that handles this
+    function lockFunds(address validator) external payable onlySystemCall {
+        require(msg.value > 0, "No funds to lock");
+        require(validator != address(0), "Invalid validator address");
+
+        // If validator already has locked funds (shouldn't happen due to hasBeenSlashed check)
+        // Add to existing amount and reset lock period
+        if (lockedFunds[validator].amount > 0 && !lockedFunds[validator].withdrawn) {
+            lockedFunds[validator].amount += msg.value;
+            lockedFunds[validator].lockTimestamp = block.timestamp;
+        } else {
+            lockedFunds[validator] = LockedFunds({
+                amount: msg.value,
+                lockTimestamp: block.timestamp,
+                withdrawn: false
+            });
         }
+
+        uint256 unlockTime = block.timestamp + LOCK_PERIOD;
+        emit FundsLocked(validator, msg.value, unlockTime);
+    }
+
+    /**
+     * @notice Burn locked funds for a specific validator (send to address(0))
+     * @dev Only callable by governance after lock period
+     * @param validator Address of the slashed validator
+     */
+    function burnLockedFunds(address validator) external onlyGovernance {
+        _checkWithdrawable(validator);
+
+        uint256 amount = lockedFunds[validator].amount;
+        lockedFunds[validator].withdrawn = true;
+
+        // Burn by sending to address(0)
+        (bool success, ) = address(0).call{value: amount}("");
+        if (!success) revert TransferFailed();
+
+        emit FundsBurned(validator, amount, msg.sender);
+    }
+
+    /**
+     * @notice Send locked funds to DAO treasury for a specific validator
+     * @dev Only callable by governance after lock period
+     * @param validator Address of the slashed validator
+     */
+    function sendToTreasury(address validator) external onlyGovernance {
+        if (daoTreasury == address(0)) revert InvalidAddress();
+        _checkWithdrawable(validator);
+
+        uint256 amount = lockedFunds[validator].amount;
+        lockedFunds[validator].withdrawn = true;
+
+        // Send to DAO treasury
+        (bool success, ) = daoTreasury.call{value: amount}("");
+        if (!success) revert TransferFailed();
+
+        emit FundsSentToTreasury(validator, amount, daoTreasury);
+    }
+
+    /**
+     * @notice Batch burn locked funds for multiple validators
+     * @dev Gas-efficient way to burn multiple validators' funds
+     * @param validators Array of validator addresses
+     */
+    function batchBurnLockedFunds(address[] calldata validators) external onlyGovernance {
+        for (uint256 i = 0; i < validators.length; i++) {
+            address validator = validators[i];
+
+            // Skip if not withdrawable (already withdrawn or still locked)
+            if (lockedFunds[validator].withdrawn ||
+                lockedFunds[validator].amount == 0 ||
+                block.timestamp < lockedFunds[validator].lockTimestamp + LOCK_PERIOD) {
+                continue;
+            }
+
+            uint256 amount = lockedFunds[validator].amount;
+            lockedFunds[validator].withdrawn = true;
+
+            // Burn by sending to address(0)
+            (bool success, ) = address(0).call{value: amount}("");
+            if (success) {
+                emit FundsBurned(validator, amount, msg.sender);
+            }
+        }
+    }
+
+    /**
+     * @notice Batch send locked funds to treasury for multiple validators
+     * @dev Gas-efficient way to send multiple validators' funds to treasury
+     * @param validators Array of validator addresses
+     */
+    function batchSendToTreasury(address[] calldata validators) external onlyGovernance {
+        if (daoTreasury == address(0)) revert InvalidAddress();
+
+        for (uint256 i = 0; i < validators.length; i++) {
+            address validator = validators[i];
+
+            // Skip if not withdrawable
+            if (lockedFunds[validator].withdrawn ||
+                lockedFunds[validator].amount == 0 ||
+                block.timestamp < lockedFunds[validator].lockTimestamp + LOCK_PERIOD) {
+                continue;
+            }
+
+            uint256 amount = lockedFunds[validator].amount;
+            lockedFunds[validator].withdrawn = true;
+
+            (bool success, ) = daoTreasury.call{value: amount}("");
+            if (success) {
+                emit FundsSentToTreasury(validator, amount, daoTreasury);
+            }
+        }
+    }
+
+    /**
+     * @notice Update governance address
+     * @param newGovernance New governance address
+     */
+    function setGovernance(address newGovernance) external onlyGovernance {
+        if (newGovernance == address(0)) revert InvalidAddress();
+
+        address oldGovernance = governance;
+        governance = newGovernance;
+
+        emit GovernanceUpdated(oldGovernance, newGovernance);
+    }
+
+    /**
+     * @notice Update DAO treasury address
+     * @param newTreasury New DAO treasury address
+     */
+    function setDaoTreasury(address newTreasury) external onlyGovernance {
+        if (newTreasury == address(0)) revert InvalidAddress();
+
+        address oldTreasury = daoTreasury;
+        daoTreasury = newTreasury;
+
+        emit DaoTreasuryUpdated(oldTreasury, newTreasury);
     }
 
     /**
@@ -247,6 +413,42 @@ contract Slashing is ISlashing, System, Initializable {
      */
     function getSlashingsInCurrentBlock() external view returns (uint256) {
         return slashingsInBlock[block.number];
+    }
+
+    /**
+     * @notice Check if funds are unlocked and ready for withdrawal
+     * @param validator Address of the validator
+     * @return True if funds can be withdrawn
+     */
+    function isUnlocked(address validator) external view returns (bool) {
+        if (lockedFunds[validator].amount == 0) return false;
+        if (lockedFunds[validator].withdrawn) return false;
+        return block.timestamp >= lockedFunds[validator].lockTimestamp + LOCK_PERIOD;
+    }
+
+    /**
+     * @notice Get unlock timestamp for a validator's locked funds
+     * @param validator Address of the validator
+     * @return Timestamp when funds can be withdrawn
+     */
+    function getUnlockTime(address validator) external view returns (uint256) {
+        if (lockedFunds[validator].amount == 0) return 0;
+        return lockedFunds[validator].lockTimestamp + LOCK_PERIOD;
+    }
+
+    /**
+     * @notice Get remaining lock time for a validator's funds
+     * @param validator Address of the validator
+     * @return Seconds remaining until unlock (0 if already unlocked)
+     */
+    function getRemainingLockTime(address validator) external view returns (uint256) {
+        if (lockedFunds[validator].amount == 0) return 0;
+        if (lockedFunds[validator].withdrawn) return 0;
+
+        uint256 unlockTime = lockedFunds[validator].lockTimestamp + LOCK_PERIOD;
+        if (block.timestamp >= unlockTime) return 0;
+
+        return unlockTime - block.timestamp;
     }
 
     // _______________ Internal Functions _______________
@@ -323,6 +525,20 @@ contract Slashing is ISlashing, System, Initializable {
 
         (bool ok2, ) = bls.verifySingle(sig2, pubkey, msg2ForBLS);
         require(ok2, "msg2 signature invalid");
+    }
+
+    /**
+     * @notice Internal check if funds are withdrawable
+     * @param validator Address of the validator
+     */
+    function _checkWithdrawable(address validator) internal view {
+        if (lockedFunds[validator].amount == 0) revert NoLockedFunds();
+        if (lockedFunds[validator].withdrawn) revert AlreadyWithdrawn();
+
+        uint256 unlockTime = lockedFunds[validator].lockTimestamp + LOCK_PERIOD;
+        if (block.timestamp < unlockTime) {
+            revert FundsStillLocked(unlockTime);
+        }
     }
 
     // _______________ Gap for Upgradeability _______________
