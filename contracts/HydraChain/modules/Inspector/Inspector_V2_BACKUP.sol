@@ -6,7 +6,6 @@ error InvalidValidatorAddress();
 error ValidatorNotActive();
 error ValidatorAlreadySlashed();
 error ReasonStringTooLong();
-error EscrowNotSet();
 
 import {IBLS} from "../../../BLS/IBLS.sol";
 import {Unauthorized} from "../../../common/Errors.sol";
@@ -15,19 +14,10 @@ import {ValidatorManager, ValidatorStatus, ValidatorInit} from "../ValidatorMana
 import {IInspector} from "./IInspector.sol";
 import {IHydraStaking} from "../../../HydraStaking/IHydraStaking.sol";
 
-// Interface for SlashingEscrow
-interface ISlashingEscrow {
-    function lockFunds(address validator) external payable;
-}
-
 /**
- * @title Inspector V3
- * @notice Manages validator lifecycle, banning, and slashing with 30-day escrow
- * @dev Updated to work with SlashingEscrow contract for 30-day locked funds
- *      Client requirements:
- *      - 100% slash for double signing
- *      - Funds locked in escrow for 30 days
- *      - Governance decides after 30 days: burn or send to DAO treasury
+ * @title Inspector
+ * @notice Manages validator lifecycle, banning, and slashing
+ * @dev Updated to work with Slashing contract while reusing existing penalizeStaker pattern
  */
 abstract contract Inspector is IInspector, ValidatorManager {
     /// @notice The penalty that will be taken and burned from the bad validator's staked amount
@@ -48,8 +38,6 @@ abstract contract Inspector is IInspector, ValidatorManager {
     mapping(address => bool) private _hasBeenSlashed;
     /// @notice Reference to the Slashing contract
     address public slashingContract;
-    /// @notice Reference to the SlashingEscrow contract (holds locked funds)
-    address public slashingEscrow;
 
     modifier onlySlashing() {
         if (msg.sender != slashingContract) revert OnlySlashing();
@@ -58,10 +46,6 @@ abstract contract Inspector is IInspector, ValidatorManager {
 
     function setSlashingContract(address _slashing) external onlySystemCall {
         slashingContract = _slashing;
-    }
-
-    function setSlashingEscrow(address _escrow) external onlySystemCall {
-        slashingEscrow = _escrow;
     }
 
     // _______________ Initializer _______________
@@ -138,20 +122,12 @@ abstract contract Inspector is IInspector, ValidatorManager {
     }
 
     /**
-     * @notice Slashes a validator's stake and locks it in escrow for 30 days
+     * @notice Slashes a validator's stake using the existing penalizeStaker pattern
      * @dev Called by Slashing contract after evidence validation.
+     *      This reuses the existing penalizeStaker + PenalizedStakeDistribution
+     *      pattern to minimize code changes and bug risk.
      *
-     *      Flow:
-     *      1. Validate validator is active and not already slashed
-     *      2. Mark validator as slashed
-     *      3. Get validator's current stake (100% will be slashed)
-     *      4. Use penalizeStaker to transfer funds to THIS contract
-     *      5. Forward funds to SlashingEscrow with lockFunds()
-     *      6. Ban the validator
-     *
-     *      After 30 days, governance can call SlashingEscrow to:
-     *      - burnLockedFunds(validator) - send to address(0)
-     *      - sendToTreasury(validator) - send to DAO treasury
+     *      The penalty percentage is read from the Slashing contract.
      *
      * @param validator Address of the validator to slash
      * @param reason Reason for slashing
@@ -161,7 +137,6 @@ abstract contract Inspector is IInspector, ValidatorManager {
         if (validators[validator].status != ValidatorStatus.Active) revert ValidatorNotActive();
         if (_hasBeenSlashed[validator]) revert ValidatorAlreadySlashed();
         if (bytes(reason).length > 100) revert ReasonStringTooLong();
-        if (slashingEscrow == address(0)) revert EscrowNotSet();
 
         // Mark validator as slashed to prevent double slashing
         _hasBeenSlashed[validator] = true;
@@ -170,24 +145,24 @@ abstract contract Inspector is IInspector, ValidatorManager {
         uint256 currentStake = hydraStakingContract.stakeOf(validator);
         require(currentStake > 0, "No stake to slash");
 
-        // 100% penalty for double signing
-        uint256 penaltyAmount = currentStake;
+        // Get penalty percentage from Slashing contract
+        // Note: Slashing contract stores percentage in basis points (10000 = 100%)
+        uint256 penaltyPercentage = _getPenaltyPercentage();
 
-        // Use existing penalizeStaker pattern to transfer funds to THIS contract
-        // This contract will then forward funds to SlashingEscrow
+        // Calculate penalty amount
+        uint256 penaltyAmount = (currentStake * penaltyPercentage) / 10000;
+
+        // Use existing penalizeStaker pattern
+        // Fund distribution decision needed: burn (address(0)) or DAO treasury?
+        // For now, using address(0) to burn as suggested by client discussion
         PenalizedStakeDistribution[] memory distributions = new PenalizedStakeDistribution[](1);
         distributions[0] = PenalizedStakeDistribution({
-            account: address(this), // Send to THIS contract first
+            account: address(0), // Burns the penalty
             amount: penaltyAmount
         });
 
         // Reuse existing penalizeStaker infrastructure
-        // This will transfer the slashed funds to THIS contract
         hydraStakingContract.penalizeStaker(validator, distributions);
-
-        // Forward the slashed funds to SlashingEscrow with 30-day lock
-        // SlashingEscrow will lock the funds and emit events
-        ISlashingEscrow(slashingEscrow).lockFunds{value: penaltyAmount}(validator);
 
         // Ban the validator after slashing
         _ban(validator);
@@ -272,26 +247,47 @@ abstract contract Inspector is IInspector, ValidatorManager {
 
     /**
      * @dev A method that executes the actions for the actual ban
-     * @param account The account to ban
+     * @param validator The address of the validator
      */
-    function _ban(address account) internal virtual;
+    function _ban(address validator) private {
+        if (validators[validator].status == ValidatorStatus.Active) {
+            PenalizedStakeDistribution[] memory rewards;
+            if (_isGovernance(msg.sender)) {
+                rewards = new PenalizedStakeDistribution[](1);
+                rewards[0] = PenalizedStakeDistribution({account: address(0), amount: validatorPenalty});
+            } else {
+                rewards = new PenalizedStakeDistribution[](2);
+                rewards[0] = PenalizedStakeDistribution({account: msg.sender, amount: reporterReward});
+                rewards[1] = PenalizedStakeDistribution({account: address(0), amount: validatorPenalty});
+            }
 
-    /**
-     * @dev A method that updates the participation of a validator
-     * @param validator The validator to update participation for
-     */
-    function _updateParticipation(address validator) internal virtual;
+            hydraStakingContract.penalizeStaker(validator, rewards);
+            activeValidatorsCount--;
+        }
 
-    /**
-     * @notice Receive function to accept slashed funds from HydraStaking
-     * @dev This contract receives funds from penalizeStaker before forwarding to escrow
-     */
-    receive() external payable {
-        // Accept funds from HydraStaking.penalizeStaker
-        // Funds will be forwarded to escrow in slashValidator function
+        validators[validator].status = ValidatorStatus.Banned;
+
+        emit ValidatorBanned(validator);
     }
 
-    // _______________ Gap for Upgradeability _______________
+    /**
+     * @dev Get penalty percentage from Slashing contract
+     * @return Penalty percentage in basis points
+     */
+    function _getPenaltyPercentage() private view returns (uint256) {
+        // Call Slashing contract's getPenaltyPercentage()
+        // Using low-level call to avoid import dependency
+        (bool success, bytes memory data) = slashingContract.staticcall(
+            abi.encodeWithSignature("getPenaltyPercentage()")
+        );
+
+        if (success && data.length >= 32) {
+            return abi.decode(data, (uint256));
+        }
+
+        // Fallback to 100% if call fails (should not happen)
+        return 10000;
+    }
 
     // slither-disable-next-line unused-state,naming-convention
     uint256[50] private __gap;
