@@ -178,28 +178,6 @@ function distributeRewardsFor(uint256 epochId, Uptime[] uptime) external nonpaya
 | epochId | uint256 | undefined |
 | uptime | Uptime[] | undefined |
 
-### getSlashedAmount
-
-```solidity
-function getSlashedAmount(address validator) external view returns (uint256)
-```
-
-Returns the slashed amount for a validator
-
-
-
-#### Parameters
-
-| Name | Type | Description |
-|---|---|---|
-| validator | address | The address of the validator |
-
-#### Returns
-
-| Name | Type | Description |
-|---|---|---|
-| _0 | uint256 | The total amount slashed |
-
 ### getStakingRewardsHistoryValues
 
 ```solidity
@@ -221,28 +199,6 @@ Returns historical records of the staking rewards of the user
 | Name | Type | Description |
 |---|---|---|
 | _0 | StakingRewardsHistory[] | stakingRewardsHistory array with the historical records of the staking rewards of the user |
-
-### hasBeenSlashed
-
-```solidity
-function hasBeenSlashed(address validator) external view returns (bool)
-```
-
-Returns whether a validator has been slashed
-
-
-
-#### Parameters
-
-| Name | Type | Description |
-|---|---|---|
-| validator | address | The address of the validator |
-
-#### Returns
-
-| Name | Type | Description |
-|---|---|---|
-| _0 | bool | True if the validator has been slashed |
 
 ### initiatePenalizedFundsWithdrawal
 
@@ -374,23 +330,6 @@ sets a new penalty rate
 | Name | Type | Description |
 |---|---|---|
 | newRate | uint256 | the new penalty rate |
-
-### slashValidator
-
-```solidity
-function slashValidator(address validator, string reason) external nonpayable
-```
-
-Slashes a validator&#39;s stake for misbehavior
-
-
-
-#### Parameters
-
-| Name | Type | Description |
-|---|---|---|
-| validator | address | The address of the validator to slash |
-| reason | string | The reason for slashing |
 
 ### stake
 
