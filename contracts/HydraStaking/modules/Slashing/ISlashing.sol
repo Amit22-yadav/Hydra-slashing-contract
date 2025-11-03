@@ -17,19 +17,6 @@ interface ISlashing {
     /// @notice Emitted when a validator is slashed
     event ValidatorSlashed(address indexed validator, string reason);
 
-    /// @notice Emitted when double-signing evidence is validated and stored
-    event DoubleSignEvidence(
-        address indexed validator,
-        bytes32 evidenceHash,
-        uint64 height,
-        uint64 round,
-        bytes32 msg1Hash,
-        bytes32 msg2Hash
-    );
-
-    /// @notice Emitted when slashed funds are burned
-    event SlashedFundsBurned(address indexed validator, uint256 amount);
-
     // _______________ External Functions _______________
 
     /**
@@ -52,13 +39,6 @@ interface ISlashing {
      * @return True if the validator has been slashed
      */
     function hasBeenSlashed(address validator) external view returns (bool);
-
-    /**
-     * @notice Get the slashed amount for a validator
-     * @param validator Address of the validator
-     * @return The total amount slashed
-     */
-    function getSlashedAmount(address validator) external view returns (uint256);
 
     /**
      * @notice Get the evidence hash for a slashed validator
