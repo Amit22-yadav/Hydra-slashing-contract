@@ -10,6 +10,66 @@
 
 ## Methods
 
+### getEvidenceHash
+
+```solidity
+function getEvidenceHash(address validator) external view returns (bytes32)
+```
+
+Get the evidence hash for a slashed validator
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| validator | address | Address of the validator |
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | bytes32 | The stored evidence hash |
+
+### hasBeenSlashed
+
+```solidity
+function hasBeenSlashed(address validator) external view returns (bool)
+```
+
+Check if a validator has been slashed
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| validator | address | Address of the validator |
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | bool | True if the validator has been slashed |
+
+### setBLSAddress
+
+```solidity
+function setBLSAddress(address blsAddr) external nonpayable
+```
+
+Set or update BLS contract address
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| blsAddr | address | Address of the BLS contract |
+
 ### slashValidator
 
 ```solidity

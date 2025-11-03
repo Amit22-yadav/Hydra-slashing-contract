@@ -1150,9 +1150,9 @@ Set the penalty amount for the banned validators
 function slashValidator(address validator, string reason) external nonpayable
 ```
 
-Slashes a validator for double-signing or other misbehavior
+Execute slashing for a validator after evidence validation
 
-
+*Called by Slashing contract. Transfers stake and locks funds for 30 days*
 
 #### Parameters
 
@@ -1167,7 +1167,7 @@ Slashes a validator for double-signing or other misbehavior
 function slashingContract() external view returns (address)
 ```
 
-
+Reference to the Slashing contract (handles evidence validation and fund locking)
 
 
 
@@ -1811,6 +1811,17 @@ error NoInitiateBanSubject()
 
 
 
+### NoStakeToSlash
+
+```solidity
+error NoStakeToSlash()
+```
+
+
+
+
+
+
 ### NoVaultFundsToClaim
 
 ```solidity
@@ -1848,6 +1859,17 @@ error PreviouslyWhitelisted()
 
 ```solidity
 error ReasonStringTooLong()
+```
+
+
+
+
+
+
+### SlashingNotSet
+
+```solidity
+error SlashingNotSet()
 ```
 
 

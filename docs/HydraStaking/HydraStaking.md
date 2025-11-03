@@ -409,28 +409,6 @@ function getRoleAdmin(bytes32 role) external view returns (bytes32)
 |---|---|---|
 | _0 | bytes32 | undefined |
 
-### getSlashedAmount
-
-```solidity
-function getSlashedAmount(address validator) external view returns (uint256)
-```
-
-Returns the slashed amount for a validator
-
-
-
-#### Parameters
-
-| Name | Type | Description |
-|---|---|---|
-| validator | address | The address of the validator |
-
-#### Returns
-
-| Name | Type | Description |
-|---|---|---|
-| _0 | uint256 | The total amount slashed |
-
 ### getStakingRewardsHistoryValues
 
 ```solidity
@@ -469,28 +447,6 @@ function grantRole(bytes32 role, address account) external nonpayable
 |---|---|---|
 | role | bytes32 | undefined |
 | account | address | undefined |
-
-### hasBeenSlashed
-
-```solidity
-function hasBeenSlashed(address validator) external view returns (bool)
-```
-
-Returns whether a validator has been slashed
-
-
-
-#### Parameters
-
-| Name | Type | Description |
-|---|---|---|
-| validator | address | The address of the validator |
-
-#### Returns
-
-| Name | Type | Description |
-|---|---|---|
-| _0 | bool | True if the validator has been slashed |
 
 ### hasRole
 
@@ -573,7 +529,7 @@ Register withdrawal of the penalized funds
 function inspectorContract() external view returns (address)
 ```
 
-
+Inspector contract reference
 
 
 
@@ -661,50 +617,6 @@ function liquidityDebts(address) external view returns (int256)
 | Name | Type | Description |
 |---|---|---|
 | _0 | int256 | undefined |
-
-### lockedSlashedAmount
-
-```solidity
-function lockedSlashedAmount(address) external view returns (uint256)
-```
-
-Mapping to track locked slashed funds per validator
-
-
-
-#### Parameters
-
-| Name | Type | Description |
-|---|---|---|
-| _0 | address | undefined |
-
-#### Returns
-
-| Name | Type | Description |
-|---|---|---|
-| _0 | uint256 | undefined |
-
-### lockedSlashedUnlockTime
-
-```solidity
-function lockedSlashedUnlockTime(address) external view returns (uint256)
-```
-
-Mapping to track unlock timestamp for slashed funds per validator
-
-
-
-#### Parameters
-
-| Name | Type | Description |
-|---|---|---|
-| _0 | address | undefined |
-
-#### Returns
-
-| Name | Type | Description |
-|---|---|---|
-| _0 | uint256 | undefined |
 
 ### minStake
 
@@ -910,52 +822,13 @@ sets a new penalty rate
 |---|---|---|
 | newRate | uint256 | the new penalty rate |
 
-### slashValidator
-
-```solidity
-function slashValidator(address validator, string reason) external nonpayable
-```
-
-Slashes a validator&#39;s stake for misbehavior
-
-
-
-#### Parameters
-
-| Name | Type | Description |
-|---|---|---|
-| validator | address | The address of the validator to slash |
-| reason | string | The reason for slashing |
-
-### slashedAmounts
-
-```solidity
-function slashedAmounts(address) external view returns (uint256)
-```
-
-Mapping to track slashed amounts per validator
-
-
-
-#### Parameters
-
-| Name | Type | Description |
-|---|---|---|
-| _0 | address | undefined |
-
-#### Returns
-
-| Name | Type | Description |
-|---|---|---|
-| _0 | uint256 | undefined |
-
 ### slashingContract
 
 ```solidity
 function slashingContract() external view returns (contract Slashing)
 ```
 
-Slashing contract instance
+Slashing contract instance (for reference only)
 
 
 
@@ -1295,23 +1168,6 @@ Withdraws sender&#39;s withdrawable amount to specified address.
 |---|---|---|
 | to | address | Address to withdraw to |
 
-### withdrawLockedSlashed
-
-```solidity
-function withdrawLockedSlashed(address validator, address to) external nonpayable
-```
-
-Allows admin to withdraw locked slashed funds after 30 days
-
-
-
-#### Parameters
-
-| Name | Type | Description |
-|---|---|---|
-| validator | address | The address of the validator whose slashed funds to withdraw |
-| to | address | undefined |
-
 ### withdrawWaitPeriod
 
 ```solidity
@@ -1510,24 +1366,6 @@ event Unstaked(address indexed account, uint256 amount)
 | account `indexed` | address | undefined |
 | amount  | uint256 | undefined |
 
-### ValidatorSlashed
-
-```solidity
-event ValidatorSlashed(address indexed validator, uint256 amount, string reason)
-```
-
-Emitted when a validator is slashed
-
-
-
-#### Parameters
-
-| Name | Type | Description |
-|---|---|---|
-| validator `indexed` | address | undefined |
-| amount  | uint256 | undefined |
-| reason  | string | undefined |
-
 ### WithdrawalFinished
 
 ```solidity
@@ -1567,17 +1405,6 @@ event WithdrawalRegistered(address indexed account, uint256 amount)
 
 ## Errors
 
-### AlreadySlashed
-
-```solidity
-error AlreadySlashed()
-```
-
-
-
-
-
-
 ### DistributeRewardFailed
 
 ```solidity
@@ -1605,32 +1432,10 @@ error FailedToBurnAmount()
 
 
 
-### FundsStillLocked
-
-```solidity
-error FundsStillLocked()
-```
-
-
-
-
-
-
 ### InvalidMinStake
 
 ```solidity
 error InvalidMinStake()
-```
-
-
-
-
-
-
-### InvalidValidatorAddress
-
-```solidity
-error InvalidValidatorAddress()
 ```
 
 
@@ -1660,32 +1465,10 @@ error NoFundsToWithdraw()
 
 
 
-### NoLockedSlashedFunds
-
-```solidity
-error NoLockedSlashedFunds()
-```
-
-
-
-
-
-
 ### NoRewards
 
 ```solidity
 error NoRewards()
-```
-
-
-
-
-
-
-### NoStakeToSlash
-
-```solidity
-error NoStakeToSlash()
 ```
 
 
@@ -1704,54 +1487,10 @@ error NoWithdrawalAvailable()
 
 
 
-### OnlyInspector
-
-```solidity
-error OnlyInspector()
-```
-
-
-
-
-
-
 ### PenaltyRateOutOfRange
 
 ```solidity
 error PenaltyRateOutOfRange()
-```
-
-
-
-
-
-
-### ReasonTooLong
-
-```solidity
-error ReasonTooLong()
-```
-
-
-
-
-
-
-### SendFailed
-
-```solidity
-error SendFailed()
-```
-
-
-
-
-
-
-### SlashAmountZero
-
-```solidity
-error SlashAmountZero()
 ```
 
 
