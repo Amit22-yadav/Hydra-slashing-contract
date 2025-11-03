@@ -22,12 +22,8 @@ interface ISlashingWithLock {
 
 /**
  * @title Inspector
- * @notice Manages validator lifecycle, banning, and slashing with 30-day locked funds
- * @dev Updated to work with unified Slashing contract for 30-day locked funds
- *      Client requirements:
- *      - 100% slash for double signing
- *      - Funds locked in Slashing contract for 30 days
- *      - Governance decides after 30 days: burn or send to DAO treasury
+ * @notice Manages validator lifecycle, banning, and slashing execution
+ * @dev Works with Slashing contract to validate evidence and lock slashed funds
  */
 abstract contract Inspector is IInspector, ValidatorManager {
     /// @notice The penalty that will be taken and burned from the bad validator's staked amount
@@ -132,21 +128,8 @@ abstract contract Inspector is IInspector, ValidatorManager {
     }
 
     /**
-     * @notice Slashes a validator's stake and locks it in Slashing contract for 30 days
-     * @dev Called by Slashing contract after evidence validation.
-     *
-     *      Flow:
-     *      1. Validate validator is active and not already slashed
-     *      2. Mark validator as slashed
-     *      3. Get validator's current stake (100% will be slashed)
-     *      4. Use penalizeStaker to transfer funds to THIS contract
-     *      5. Forward funds to Slashing contract with lockFunds()
-     *      6. Ban the validator
-     *
-     *      After 30 days, governance can call Slashing contract to:
-     *      - burnLockedFunds(validator) - send to address(0)
-     *      - sendToTreasury(validator) - send to DAO treasury
-     *
+     * @notice Execute slashing for a validator after evidence validation
+     * @dev Called by Slashing contract. Transfers stake and locks funds for 30 days
      * @param validator Address of the validator to slash
      * @param reason Reason for slashing
      */
@@ -157,33 +140,22 @@ abstract contract Inspector is IInspector, ValidatorManager {
         if (bytes(reason).length > 100) revert ReasonStringTooLong();
         if (slashingContract == address(0)) revert SlashingNotSet();
 
-        // Mark validator as slashed to prevent double slashing
         _hasBeenSlashed[validator] = true;
 
-        // Get the validator's current stake
         uint256 currentStake = hydraStakingContract.stakeOf(validator);
         if (currentStake == 0) revert NoStakeToSlash();
 
-        // 100% penalty for double signing
         uint256 penaltyAmount = currentStake;
 
-        // Use existing penalizeStaker pattern to transfer funds to THIS contract
-        // This contract will then forward funds to Slashing contract
         PenalizedStakeDistribution[] memory distributions = new PenalizedStakeDistribution[](1);
         distributions[0] = PenalizedStakeDistribution({
-            account: address(this), // Send to THIS contract first
+            account: address(this),
             amount: penaltyAmount
         });
 
-        // Reuse existing penalizeStaker infrastructure
-        // This will transfer the slashed funds to THIS contract
         hydraStakingContract.penalizeStaker(validator, distributions);
-
-        // Forward the slashed funds to Slashing contract with 30-day lock
-        // Slashing contract will lock the funds and emit events
         ISlashingWithLock(slashingContract).lockFunds{value: penaltyAmount}(validator);
 
-        // Ban the validator after slashing
         _ban(validator);
 
         emit ValidatorSlashed(validator, reason);
@@ -262,27 +234,39 @@ abstract contract Inspector is IInspector, ValidatorManager {
      */
     function isSubjectToInitiateBan(address account) public virtual returns (bool);
 
+    /**
+     * @notice Receive slashed funds from HydraStaking before forwarding to Slashing contract
+     */
+    receive() external payable {
+        // Funds forwarded to Slashing contract in slashValidator function
+    }
+
     // _______________ Private functions _______________
 
     /**
-     * @dev A method that executes the actions for the actual ban
-     * @param account The account to ban
+     * @notice Ban a validator by marking them as banned
+     * @dev Reuses existing ban capabilities as per mainnet version
+     * @param validator Address of the validator to ban
      */
-    function _ban(address account) internal virtual;
+    function _ban(address validator) private {
+        if (validators[validator].status == ValidatorStatus.Active) {
+            PenalizedStakeDistribution[] memory rewards;
+            if (_isGovernance(msg.sender)) {
+                rewards = new PenalizedStakeDistribution[](1);
+                rewards[0] = PenalizedStakeDistribution({account: address(0), amount: validatorPenalty});
+            } else {
+                rewards = new PenalizedStakeDistribution[](2);
+                rewards[0] = PenalizedStakeDistribution({account: msg.sender, amount: reporterReward});
+                rewards[1] = PenalizedStakeDistribution({account: address(0), amount: validatorPenalty});
+            }
 
-    /**
-     * @dev A method that updates the participation of a validator
-     * @param validator The validator to update participation for
-     */
-    function _updateParticipation(address validator) internal virtual;
+            hydraStakingContract.penalizeStaker(validator, rewards);
+            activeValidatorsCount--;
+        }
 
-    /**
-     * @notice Receive function to accept slashed funds from HydraStaking
-     * @dev This contract receives funds from penalizeStaker before forwarding to escrow
-     */
-    receive() external payable {
-        // Accept funds from HydraStaking.penalizeStaker
-        // Funds will be forwarded to escrow in slashValidator function
+        validators[validator].status = ValidatorStatus.Banned;
+
+        emit ValidatorBanned(validator);
     }
 
     // _______________ Gap for Upgradeability _______________

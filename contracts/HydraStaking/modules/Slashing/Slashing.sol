@@ -14,15 +14,8 @@ interface IInspectorWithPubkey {
 
 /**
  * @title Slashing
- * @notice Validates double-signing evidence, slashes validators, and manages 30-day locked funds
- * @dev This contract implements all slashing requirements in a single contract:
- *      - Evidence validation and BLS signature verification
- *      - 100% slash (fixed, not configurable)
- *      - 30-day escrow for locked funds
- *      - Governance can decide per-validator: burn or send to DAO treasury
- *      - Mass slashing protection (rate limiting + tombstone cap)
- *      - Evidence storage for auditing
- *      - Reuses existing Inspector + penalizeStaker pattern
+ * @notice Validates double-signing evidence and manages slashed funds with 30-day lock period
+ * @dev Implements BLS signature verification, rate limiting, and governance-controlled fund distribution
  */
 contract Slashing is ISlashing, System, Initializable {
     // _______________ Constants _______________
@@ -34,7 +27,6 @@ contract Slashing is ISlashing, System, Initializable {
     uint256 public constant LOCK_PERIOD = 30 days;
 
     /// @notice Maximum validators that can be slashed in a single block
-    /// @dev Protection against mass slashing bugs that could harm decentralization
     uint256 public maxSlashingsPerBlock;
 
     /// @notice Tracks slashings per block for protection
@@ -168,16 +160,8 @@ contract Slashing is ISlashing, System, Initializable {
     }
 
     /**
-     * @notice Validates double-signing evidence and slashes validator with 100% penalty
-     * @dev This is the ONLY entry point for slashing. It:
-     *      1. Validates cryptographic evidence
-     *      2. Stores evidence for auditing
-     *      3. Delegates to Inspector.slashValidator()
-     *      4. Inspector transfers 100% of stake to this contract
-     *      5. This contract locks funds internally for 30 days
-     *
-     *      After 30 days, governance can decide to burn or send to DAO treasury.
-     *
+     * @notice Validates double-signing evidence and initiates slashing process
+     * @dev Verifies BLS signatures, stores evidence, and delegates execution to Inspector
      * @param validator Address of the validator to slash
      * @param msg1 First conflicting IBFT message
      * @param msg2 Second conflicting IBFT message
@@ -225,29 +209,21 @@ contract Slashing is ISlashing, System, Initializable {
             keccak256(msg2.data)
         );
 
-        // Delegate to Inspector's slashing mechanism
-        // Inspector will:
-        // 1. Get validator's current stake
-        // 2. Calculate 100% penalty
-        // 3. Call HydraStaking.penalizeStaker() with PenalizedStakeDistribution pointing to THIS contract
-        // 4. Send slashed funds to THIS contract (via receive function)
-        // 5. Ban the validator
+        // Delegate to Inspector for execution
         IInspector(hydraChainContract).slashValidator(validator, reason);
 
         emit ValidatorSlashed(validator, reason);
     }
 
     /**
-     * @notice Lock slashed funds for a validator
-     * @dev Called by Inspector contract during slashing via receive()
+     * @notice Lock slashed funds for a validator with 30-day lock period
+     * @dev Called by Inspector contract during slashing
      * @param validator Address of the slashed validator
      */
     function lockFunds(address validator) external payable onlySystemCall {
         require(msg.value > 0, "No funds to lock");
         require(validator != address(0), "Invalid validator address");
 
-        // If validator already has locked funds (shouldn't happen due to hasBeenSlashed check)
-        // Add to existing amount and reset lock period
         if (lockedFunds[validator].amount > 0 && !lockedFunds[validator].withdrawn) {
             lockedFunds[validator].amount += msg.value;
             lockedFunds[validator].lockTimestamp = block.timestamp;
@@ -301,15 +277,13 @@ contract Slashing is ISlashing, System, Initializable {
     }
 
     /**
-     * @notice Batch burn locked funds for multiple validators
-     * @dev Gas-efficient way to burn multiple validators' funds
+     * @notice Burn locked funds for multiple validators
      * @param validators Array of validator addresses
      */
     function batchBurnLockedFunds(address[] calldata validators) external onlyGovernance {
         for (uint256 i = 0; i < validators.length; i++) {
             address validator = validators[i];
 
-            // Skip if not withdrawable (already withdrawn or still locked)
             if (lockedFunds[validator].withdrawn ||
                 lockedFunds[validator].amount == 0 ||
                 block.timestamp < lockedFunds[validator].lockTimestamp + LOCK_PERIOD) {
@@ -319,7 +293,6 @@ contract Slashing is ISlashing, System, Initializable {
             uint256 amount = lockedFunds[validator].amount;
             lockedFunds[validator].withdrawn = true;
 
-            // Burn by sending to address(0)
             (bool success, ) = address(0).call{value: amount}("");
             if (success) {
                 emit FundsBurned(validator, amount, msg.sender);
@@ -328,8 +301,7 @@ contract Slashing is ISlashing, System, Initializable {
     }
 
     /**
-     * @notice Batch send locked funds to treasury for multiple validators
-     * @dev Gas-efficient way to send multiple validators' funds to treasury
+     * @notice Send locked funds to treasury for multiple validators
      * @param validators Array of validator addresses
      */
     function batchSendToTreasury(address[] calldata validators) external onlyGovernance {
@@ -338,7 +310,6 @@ contract Slashing is ISlashing, System, Initializable {
         for (uint256 i = 0; i < validators.length; i++) {
             address validator = validators[i];
 
-            // Skip if not withdrawable
             if (lockedFunds[validator].withdrawn ||
                 lockedFunds[validator].amount == 0 ||
                 block.timestamp < lockedFunds[validator].lockTimestamp + LOCK_PERIOD) {
