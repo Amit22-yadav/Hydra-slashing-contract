@@ -152,7 +152,7 @@ contract Slashing is ISlashing, System, Initializable {
      * @dev Protection against mass slashing events due to bugs
      * @param newMax New maximum slashings per block
      */
-    function setMaxSlashingsPerBlock(uint256 newMax) external onlySystemCall {
+    function setMaxSlashingsPerBlock(uint256 newMax) external onlyGovernance {
         uint256 oldMax = maxSlashingsPerBlock;
         maxSlashingsPerBlock = newMax;
 
