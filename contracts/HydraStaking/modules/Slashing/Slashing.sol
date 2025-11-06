@@ -3,21 +3,14 @@ pragma solidity ^0.8.17;
 
 import {ISlashing, IBFTMessage} from "./ISlashing.sol";
 import {System} from "../../../common/System/System.sol";
-import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {IInspector} from "../../../HydraChain/modules/Inspector/IInspector.sol";
-import {IBLS} from "../../../BLS/IBLS.sol";
-
-// Extend with interface for pubkey access
-interface IInspectorWithPubkey {
-    function getValidatorPubkey(address validator) external view returns (uint256[4] memory);
-}
 
 /**
  * @title Slashing
  * @notice Validates double-signing evidence and manages slashed funds with 30-day lock period
  * @dev Implements BLS signature verification, rate limiting, and governance-controlled fund distribution
  */
-contract Slashing is ISlashing, System, Initializable {
+contract Slashing is ISlashing, System {
     // _______________ Constants _______________
 
     /// @notice Penalty is always 100% for double signing
@@ -34,9 +27,6 @@ contract Slashing is ISlashing, System, Initializable {
 
     // _______________ State Variables _______________
 
-    /// @notice BLS contract for signature verification
-    IBLS public bls;
-
     /// @notice Reference to the HydraChain contract (Inspector module)
     address public hydraChainContract;
 
@@ -51,6 +41,9 @@ contract Slashing is ISlashing, System, Initializable {
 
     /// @notice Mapping to track if a validator has been slashed (prevents double slashing)
     mapping(address => bool) private _hasBeenSlashed;
+
+    /// @notice Custom initialization flag (replaces OpenZeppelin's Initializable)
+    bool private _initialized;
 
     /// @notice Tracks locked funds per validator
     struct LockedFunds {
@@ -67,7 +60,7 @@ contract Slashing is ISlashing, System, Initializable {
     error InvalidValidatorAddress();
     error ValidatorAlreadySlashed();
     error EvidenceMismatch(string detail);
-    error BLSNotSet();
+    error InvalidSignature(string detail);
     error MaxSlashingsExceeded();
     error OnlyGovernance();
     error FundsStillLocked(uint256 unlockTime);
@@ -106,6 +99,16 @@ contract Slashing is ISlashing, System, Initializable {
     /// @notice Emitted when DAO treasury address is updated
     event DaoTreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
 
+    /// @notice Emitted when BLS verification skip flag is updated
+    event BLSVerificationSkipUpdated(bool skip);
+
+    /// @notice Debug events for slashing validation steps
+    event SlashingStepCompleted(string step, address validator);
+    event SlashingValidationFailed(string step, address validator, string reason);
+
+    /// @notice Emitted when contract is initialized
+    event SlashingContractInitialized(address hydraChain, address governance);
+
     // _______________ Modifiers _______________
 
     modifier onlyGovernance() {
@@ -127,7 +130,8 @@ contract Slashing is ISlashing, System, Initializable {
         address governanceAddr,
         address daoTreasuryAddr,
         uint256 initialMaxSlashingsPerBlock
-    ) external initializer onlySystemCall {
+    ) external onlySystemCall {
+        require(!_initialized, "Already initialized");
         require(hydraChainAddr != address(0), "Invalid HydraChain address");
         require(governanceAddr != address(0), "Invalid governance address");
 
@@ -135,17 +139,15 @@ contract Slashing is ISlashing, System, Initializable {
         governance = governanceAddr;
         daoTreasury = daoTreasuryAddr; // Can be zero address initially
         maxSlashingsPerBlock = initialMaxSlashingsPerBlock;
+
+        // Mark as initialized
+        _initialized = true;
+
+        // Emit initialization event for debugging
+        emit SlashingContractInitialized(hydraChainAddr, governanceAddr);
     }
 
     // _______________ External Functions _______________
-
-    /**
-     * @notice Set or update BLS contract address
-     * @param blsAddr Address of the BLS contract
-     */
-    function setBLSAddress(address blsAddr) external onlySystemCall {
-        bls = IBLS(blsAddr);
-    }
 
     /**
      * @notice Update the maximum slashings allowed per block
@@ -161,7 +163,7 @@ contract Slashing is ISlashing, System, Initializable {
 
     /**
      * @notice Validates double-signing evidence and initiates slashing process
-     * @dev Verifies BLS signatures, stores evidence, and delegates execution to Inspector
+     * @dev Verifies ECDSA signatures, stores evidence, and delegates execution to Inspector
      * @param validator Address of the validator to slash
      * @param msg1 First conflicting IBFT message
      * @param msg2 Second conflicting IBFT message
@@ -173,31 +175,42 @@ contract Slashing is ISlashing, System, Initializable {
         IBFTMessage calldata msg2,
         string calldata reason
     ) external onlySystemCall {
+        emit SlashingStepCompleted("slashValidator_start", validator);
+
         // Protection: Check if already slashed
         if (validator == address(0)) revert InvalidValidatorAddress();
+        emit SlashingStepCompleted("validator_address_check_passed", validator);
+
         if (_hasBeenSlashed[validator]) revert ValidatorAlreadySlashed();
-        if (address(bls) == address(0)) revert BLSNotSet();
+        emit SlashingStepCompleted("not_already_slashed_check_passed", validator);
+
+        // Validate evidence structure BEFORE marking as slashed
+        _validateEvidence(validator, msg1, msg2);
+        emit SlashingStepCompleted("evidence_validation_passed", validator);
+
+        // Verify ECDSA signatures BEFORE marking as slashed
+        _verifyECDSASignatures(validator, msg1, msg2);
+        emit SlashingStepCompleted("ecdsa_verification_passed", validator);
 
         // Protection: Prevent mass slashing in single block
+        // This check happens AFTER validation to ensure only valid evidence is counted
         if (slashingsInBlock[block.number] >= maxSlashingsPerBlock) {
             revert MaxSlashingsExceeded();
         }
-
-        // Validate evidence structure
-        _validateEvidence(validator, msg1, msg2);
-
-        // Verify BLS signatures
-        _verifyBLSSignatures(validator, msg1, msg2);
+        emit SlashingStepCompleted("max_slashing_check_passed", validator);
 
         // Store evidence for auditing
         bytes32 evidenceHash = keccak256(abi.encode(msg1, msg2));
         slashingEvidenceHash[validator] = evidenceHash;
+        emit SlashingStepCompleted("evidence_stored", validator);
 
         // Mark as slashed to prevent double slashing
         _hasBeenSlashed[validator] = true;
+        emit SlashingStepCompleted("marked_as_slashed", validator);
 
         // Increment slashing counter for this block
         slashingsInBlock[block.number]++;
+        emit SlashingStepCompleted("slashing_counter_incremented", validator);
 
         // Emit detailed evidence event
         emit DoubleSignEvidence(
@@ -208,11 +221,15 @@ contract Slashing is ISlashing, System, Initializable {
             keccak256(msg1.data),
             keccak256(msg2.data)
         );
+        emit SlashingStepCompleted("double_sign_evidence_emitted", validator);
 
         // Delegate to Inspector for execution
+        emit SlashingStepCompleted("calling_inspector_slashValidator", validator);
         IInspector(hydraChainContract).slashValidator(validator, reason);
+        emit SlashingStepCompleted("inspector_slashValidator_completed", validator);
 
         emit ValidatorSlashed(validator, reason);
+        emit SlashingStepCompleted("slashValidator_completed_successfully", validator);
     }
 
     /**
@@ -353,6 +370,14 @@ contract Slashing is ISlashing, System, Initializable {
     }
 
     /**
+     * @notice Test function to verify contract is callable
+     * @return Always returns true
+     */
+    function ping() external pure returns (bool) {
+        return true;
+    }
+
+    /**
      * @notice Check if a validator has been slashed
      * @param validator Address of the validator
      * @return True if the validator has been slashed
@@ -434,68 +459,126 @@ contract Slashing is ISlashing, System, Initializable {
         address validator,
         IBFTMessage calldata msg1,
         IBFTMessage calldata msg2
-    ) internal pure {
+    ) internal {
+        emit SlashingStepCompleted("evidence_validation_start", validator);
+
         // Both messages must be from the validator
-        if (msg1.from != validator || msg2.from != validator) {
-            revert EvidenceMismatch("from != validator");
+        if (msg1.from != validator) {
+            emit SlashingValidationFailed("validate_evidence", validator, "msg1.from != validator");
+            revert EvidenceMismatch("msg1.from != validator");
         }
+        emit SlashingStepCompleted("msg1_from_validated", validator);
+
+        if (msg2.from != validator) {
+            emit SlashingValidationFailed("validate_evidence", validator, "msg2.from != validator");
+            revert EvidenceMismatch("msg2.from != validator");
+        }
+        emit SlashingStepCompleted("msg2_from_validated", validator);
 
         // Messages must be from the same height
         if (msg1.height != msg2.height) {
+            emit SlashingValidationFailed("validate_evidence", validator, "height mismatch");
             revert EvidenceMismatch("height mismatch");
         }
+        emit SlashingStepCompleted("height_validated", validator);
 
         // Messages must be from the same round
         if (msg1.round != msg2.round) {
+            emit SlashingValidationFailed("validate_evidence", validator, "round mismatch");
             revert EvidenceMismatch("round mismatch");
         }
+        emit SlashingStepCompleted("round_validated", validator);
 
         // Messages must be of the same type
         if (msg1.msgType != msg2.msgType) {
+            emit SlashingValidationFailed("validate_evidence", validator, "type mismatch");
             revert EvidenceMismatch("type mismatch");
         }
+        emit SlashingStepCompleted("msgType_validated", validator);
 
         // Messages must have different data (this is the conflicting part)
         if (keccak256(msg1.data) == keccak256(msg2.data)) {
+            emit SlashingValidationFailed("validate_evidence", validator, "identical data");
             revert EvidenceMismatch("identical data");
         }
+        emit SlashingStepCompleted("data_difference_validated", validator);
 
         // Signatures must be different
         if (keccak256(msg1.signature) == keccak256(msg2.signature)) {
+            emit SlashingValidationFailed("validate_evidence", validator, "identical signatures");
             revert EvidenceMismatch("identical signatures");
         }
+
+        emit SlashingStepCompleted("evidence_validation_complete", validator);
     }
 
     /**
-     * @notice Verify BLS signatures for both messages
+     * @notice Verify ECDSA signatures for both IBFT messages
      * @param validator Address of the validator
      * @param msg1 First IBFT message
      * @param msg2 Second IBFT message
      */
-    function _verifyBLSSignatures(
+    function _verifyECDSASignatures(
         address validator,
         IBFTMessage calldata msg1,
         IBFTMessage calldata msg2
-    ) internal view {
-        // Get validator's public key from Inspector
-        uint256[4] memory pubkey = IInspectorWithPubkey(hydraChainContract).getValidatorPubkey(validator);
+    ) internal pure {
+        // Hash the message data (IBFT signs the raw keccak256 hash without prefix)
+        bytes32 msg1Hash = keccak256(msg1.data);
+        bytes32 msg2Hash = keccak256(msg2.data);
 
-        // Decode BLS signatures from bytes
-        uint256[2] memory sig1 = abi.decode(msg1.signature, (uint256[2]));
-        uint256[2] memory sig2 = abi.decode(msg2.signature, (uint256[2]));
+        // Recover signer from signatures (IBFT uses raw hash, no Ethereum prefix)
+        address signer1 = _recoverSigner(msg1Hash, msg1.signature);
+        address signer2 = _recoverSigner(msg2Hash, msg2.signature);
 
-        // Hash the message data for BLS verification
-        bytes32 msg1DataHash = keccak256(msg1.data);
-        bytes32 msg2DataHash = keccak256(msg2.data);
-        uint256[2] memory msg1ForBLS = [uint256(msg1DataHash), 0];
-        uint256[2] memory msg2ForBLS = [uint256(msg2DataHash), 0];
+        // Verify both signatures are from the expected validator
+        if (signer1 != validator) {
+            revert InvalidSignature("msg1 signature does not match validator");
+        }
+        if (signer2 != validator) {
+            revert InvalidSignature("msg2 signature does not match validator");
+        }
+    }
 
-        // Verify BLS signatures
-        (bool ok1, ) = bls.verifySingle(sig1, pubkey, msg1ForBLS);
-        require(ok1, "msg1 signature invalid");
+    /**
+     * @notice Recover signer address from signature
+     * @param messageHash Hash of the signed message
+     * @param signature ECDSA signature (65 bytes: r, s, v)
+     * @return Address of the signer
+     */
+    function _recoverSigner(bytes32 messageHash, bytes memory signature) internal pure returns (address) {
+        if (signature.length != 65) {
+            revert InvalidSignature("Invalid signature length");
+        }
 
-        (bool ok2, ) = bls.verifySingle(sig2, pubkey, msg2ForBLS);
-        require(ok2, "msg2 signature invalid");
+        bytes32 r;
+        bytes32 s;
+        uint8 v;
+
+        // Extract r, s, v from signature
+        assembly {
+            r := mload(add(signature, 32))
+            s := mload(add(signature, 64))
+            v := byte(0, mload(add(signature, 96)))
+        }
+
+        // EIP-2: Adjust v if necessary (27/28)
+        if (v < 27) {
+            v += 27;
+        }
+
+        // Verify signature validity
+        if (v != 27 && v != 28) {
+            revert InvalidSignature("Invalid v value in signature");
+        }
+
+        // Recover address using ecrecover
+        address recovered = ecrecover(messageHash, v, r, s);
+        if (recovered == address(0)) {
+            revert InvalidSignature("Failed to recover signer");
+        }
+
+        return recovered;
     }
 
     /**
