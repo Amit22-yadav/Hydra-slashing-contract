@@ -46,10 +46,4 @@ interface ISlashing {
      * @return The stored evidence hash
      */
     function getEvidenceHash(address validator) external view returns (bytes32);
-
-    /**
-     * @notice Set or update BLS contract address
-     * @param blsAddr Address of the BLS contract
-     */
-    function setBLSAddress(address blsAddr) external;
 }

@@ -178,23 +178,6 @@ Send locked funds to treasury for multiple validators
 |---|---|---|
 | validators | address[] | Array of validator addresses |
 
-### bls
-
-```solidity
-function bls() external view returns (contract IBLS)
-```
-
-BLS contract for signature verification
-
-
-
-
-#### Returns
-
-| Name | Type | Description |
-|---|---|---|
-| _0 | contract IBLS | undefined |
-
 ### burnLockedFunds
 
 ```solidity
@@ -482,6 +465,23 @@ Maximum validators that can be slashed in a single block
 |---|---|---|
 | _0 | uint256 | undefined |
 
+### ping
+
+```solidity
+function ping() external pure returns (bool)
+```
+
+Test function to verify contract is callable
+
+
+
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | bool | Always returns true |
+
 ### sendToTreasury
 
 ```solidity
@@ -497,22 +497,6 @@ Send locked funds to DAO treasury for a specific validator
 | Name | Type | Description |
 |---|---|---|
 | validator | address | Address of the slashed validator |
-
-### setBLSAddress
-
-```solidity
-function setBLSAddress(address blsAddr) external nonpayable
-```
-
-Set or update BLS contract address
-
-
-
-#### Parameters
-
-| Name | Type | Description |
-|---|---|---|
-| blsAddr | address | Address of the BLS contract |
 
 ### setDaoTreasury
 
@@ -629,6 +613,22 @@ Tracks slashings per block for protection
 
 ## Events
 
+### BLSVerificationSkipUpdated
+
+```solidity
+event BLSVerificationSkipUpdated(bool skip)
+```
+
+Emitted when BLS verification skip flag is updated
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| skip  | bool | undefined |
+
 ### DaoTreasuryUpdated
 
 ```solidity
@@ -738,22 +738,6 @@ Emitted when governance address is updated
 | oldGovernance `indexed` | address | undefined |
 | newGovernance `indexed` | address | undefined |
 
-### Initialized
-
-```solidity
-event Initialized(uint8 version)
-```
-
-
-
-
-
-#### Parameters
-
-| Name | Type | Description |
-|---|---|---|
-| version  | uint8 | undefined |
-
 ### MaxSlashingsPerBlockUpdated
 
 ```solidity
@@ -770,6 +754,58 @@ Emitted when max slashings per block is updated
 |---|---|---|
 | oldMax  | uint256 | undefined |
 | newMax  | uint256 | undefined |
+
+### SlashingContractInitialized
+
+```solidity
+event SlashingContractInitialized(address hydraChain, address governance)
+```
+
+Emitted when contract is initialized
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| hydraChain  | address | undefined |
+| governance  | address | undefined |
+
+### SlashingStepCompleted
+
+```solidity
+event SlashingStepCompleted(string step, address validator)
+```
+
+Debug events for slashing validation steps
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| step  | string | undefined |
+| validator  | address | undefined |
+
+### SlashingValidationFailed
+
+```solidity
+event SlashingValidationFailed(string step, address validator, string reason)
+```
+
+
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| step  | string | undefined |
+| validator  | address | undefined |
+| reason  | string | undefined |
 
 ### ValidatorSlashed
 
@@ -796,17 +832,6 @@ Emitted when a validator is slashed
 
 ```solidity
 error AlreadyWithdrawn()
-```
-
-
-
-
-
-
-### BLSNotSet
-
-```solidity
-error BLSNotSet()
 ```
 
 
@@ -856,6 +881,22 @@ error InvalidAddress()
 
 
 
+
+### InvalidSignature
+
+```solidity
+error InvalidSignature(string detail)
+```
+
+
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| detail | string | undefined |
 
 ### InvalidValidatorAddress
 

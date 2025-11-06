@@ -54,22 +54,6 @@ Check if a validator has been slashed
 |---|---|---|
 | _0 | bool | True if the validator has been slashed |
 
-### setBLSAddress
-
-```solidity
-function setBLSAddress(address blsAddr) external nonpayable
-```
-
-Set or update BLS contract address
-
-
-
-#### Parameters
-
-| Name | Type | Description |
-|---|---|---|
-| blsAddr | address | Address of the BLS contract |
-
 ### slashValidator
 
 ```solidity
