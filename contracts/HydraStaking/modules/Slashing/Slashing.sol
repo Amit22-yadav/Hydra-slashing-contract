@@ -20,6 +20,9 @@ contract Slashing is ISlashing, System {
     /// @notice Lock period before funds can be withdrawn (30 days in seconds)
     uint256 public constant LOCK_PERIOD = 30 days;
 
+    /// @notice Whistleblower reward percentage (in basis points, e.g., 500 = 5%)
+    uint256 public whistleblowerRewardPercentage;
+
     /// @notice Maximum validators that can be slashed in a single block
     uint256 public maxSlashingsPerBlock;
 
@@ -59,6 +62,9 @@ contract Slashing is ISlashing, System {
     /// @notice Mapping of validator address to their locked slashed funds
     mapping(address => LockedFunds) public lockedFunds;
 
+    /// @notice Mapping to track reporter (whistleblower) for each slashed validator
+    mapping(address => address) public slashingReporter;
+
     // _______________ Custom Errors _______________
 
     error InvalidValidatorAddress();
@@ -97,6 +103,12 @@ contract Slashing is ISlashing, System {
     /// @notice Emitted when governance sends funds to DAO treasury
     event FundsSentToTreasury(address indexed validator, uint256 amount, address indexed treasury);
 
+    /// @notice Emitted when whistleblower receives reward
+    event WhistleblowerRewarded(address indexed reporter, address indexed validator, uint256 reward);
+
+    /// @notice Emitted when whistleblower reward percentage is updated
+    event WhistleblowerRewardPercentageUpdated(uint256 oldPercentage, uint256 newPercentage);
+
     /// @notice Emitted when governance address is updated
     event GovernanceUpdated(address indexed oldGovernance, address indexed newGovernance);
 
@@ -130,24 +142,28 @@ contract Slashing is ISlashing, System {
      * @param governanceAddr Address of governance (can withdraw after lock period)
      * @param daoTreasuryAddr Address of DAO treasury (optional destination)
      * @param initialMaxSlashingsPerBlock Initial max slashings per block
+     * @param initialWhistleblowerRewardPercentage Initial whistleblower reward (basis points, e.g., 500 = 5%)
      */
     function initialize(
         address hydraChainAddr,
         address hydraStakingAddr,
         address governanceAddr,
         address daoTreasuryAddr,
-        uint256 initialMaxSlashingsPerBlock
+        uint256 initialMaxSlashingsPerBlock,
+        uint256 initialWhistleblowerRewardPercentage
     ) external onlySystemCall {
         require(!_initialized, "Already initialized");
         require(hydraChainAddr != address(0), "Invalid HydraChain address");
         require(hydraStakingAddr != address(0), "Invalid HydraStaking address");
         require(governanceAddr != address(0), "Invalid governance address");
+        require(initialWhistleblowerRewardPercentage <= 1000, "Reward cannot exceed 10%"); // Max 10%
 
         hydraChainContract = hydraChainAddr;
         hydraStakingContract = hydraStakingAddr;
         governance = governanceAddr;
         daoTreasury = daoTreasuryAddr; // Can be zero address initially
         maxSlashingsPerBlock = initialMaxSlashingsPerBlock;
+        whistleblowerRewardPercentage = initialWhistleblowerRewardPercentage;
 
         // Mark as initialized
         _initialized = true;
@@ -168,6 +184,20 @@ contract Slashing is ISlashing, System {
         maxSlashingsPerBlock = newMax;
 
         emit MaxSlashingsPerBlockUpdated(oldMax, newMax);
+    }
+
+    /**
+     * @notice Update the whistleblower reward percentage
+     * @dev Reward must not exceed 10% (1000 basis points)
+     * @param newPercentage New reward percentage in basis points (e.g., 500 = 5%)
+     */
+    function setWhistleblowerRewardPercentage(uint256 newPercentage) external onlyGovernance {
+        require(newPercentage <= 1000, "Reward cannot exceed 10%");
+
+        uint256 oldPercentage = whistleblowerRewardPercentage;
+        whistleblowerRewardPercentage = newPercentage;
+
+        emit WhistleblowerRewardPercentageUpdated(oldPercentage, newPercentage);
     }
 
     /**
@@ -253,6 +283,7 @@ contract Slashing is ISlashing, System {
      * @param round Consensus round of the double signing
      * @param msgType IBFT message type
      * @param reason Reason for slashing (e.g., "double-signing")
+     * @param reporter Address of the validator who reported/included this evidence (block proposer)
      */
     function slashValidatorOptimized(
         address validator,
@@ -263,7 +294,8 @@ contract Slashing is ISlashing, System {
         uint64 height,
         uint64 round,
         uint8 msgType,
-        string calldata reason
+        string calldata reason,
+        address reporter
     ) external onlySystemCall {
         emit SlashingStepCompleted("slashValidatorOptimized_started", validator);
 
@@ -305,6 +337,11 @@ contract Slashing is ISlashing, System {
         _hasBeenSlashed[validator] = true;
         slashingsInBlock[block.number]++;
 
+        // Store the reporter (whistleblower) for reward distribution
+        if (reporter != address(0)) {
+            slashingReporter[validator] = reporter;
+        }
+
         // Emit events and execute slashing
         emit SlashingStepCompleted("emitting_double_sign_evidence", validator);
         emit DoubleSignEvidence(validator, slashingEvidenceHash[validator], height, round, msg1Hash, msg2Hash);
@@ -321,6 +358,7 @@ contract Slashing is ISlashing, System {
     /**
      * @notice Lock slashed funds for a validator (funds stay in HydraStaking)
      * @dev Called by Inspector contract during slashing. Removes from active stake and locks for governance decision.
+     *      Automatically distributes whistleblower reward to the reporter if configured.
      * @param validator Address of the slashed validator
      * @param amount Amount to lock
      */
@@ -330,23 +368,44 @@ contract Slashing is ISlashing, System {
         require(amount > 0, "No funds to lock");
         require(validator != address(0), "Invalid validator address");
 
-        // Call HydraStaking to remove stake from active balance
-        IHydraStaking(hydraStakingContract).lockStakeForSlashing(validator, amount);
+        // Get the reporter from storage (set in slashValidatorOptimized)
+        address reporter = slashingReporter[validator];
+
+        // Calculate whistleblower reward
+        uint256 whistleblowerReward = 0;
+        uint256 amountToLock = amount;
+
+        if (reporter != address(0) && whistleblowerRewardPercentage > 0) {
+            whistleblowerReward = (amount * whistleblowerRewardPercentage) / 10000;
+            amountToLock = amount - whistleblowerReward;
+
+            emit WhistleblowerRewarded(reporter, validator, whistleblowerReward);
+        }
+
+        // Call HydraStaking to remove stake from active balance and distribute whistleblower reward
+        // HydraStaking will send the whistleblowerReward to the reporter directly
+        IHydraStaking(hydraStakingContract).lockStakeForSlashing(
+            validator,
+            amount,
+            whistleblowerReward,
+            reporter
+        );
 
         // Record the locked amount (funds stay in HydraStaking contract)
+        // Only lock the remaining amount after whistleblower reward
         if (lockedFunds[validator].amount > 0 && !lockedFunds[validator].withdrawn) {
-            lockedFunds[validator].amount += amount;
+            lockedFunds[validator].amount += amountToLock;
             lockedFunds[validator].lockTimestamp = block.timestamp;
         } else {
             lockedFunds[validator] = LockedFunds({
-                amount: amount,
+                amount: amountToLock,
                 lockTimestamp: block.timestamp,
                 withdrawn: false
             });
         }
 
         uint256 unlockTime = block.timestamp + LOCK_PERIOD;
-        emit FundsLocked(validator, amount, unlockTime);
+        emit FundsLocked(validator, amountToLock, unlockTime);
     }
 
     /**

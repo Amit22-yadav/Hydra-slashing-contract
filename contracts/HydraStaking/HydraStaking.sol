@@ -56,20 +56,34 @@ contract HydraStaking is
 
     /**
      * @notice Lock validator's stake for slashing (called by Slashing contract)
-     * @dev Removes stake from active balance and locks it for governance decision
+     * @dev Removes stake from active balance, distributes whistleblower reward, and locks remainder
      * @param validator Address of the validator to slash
-     * @param amount Amount to lock
+     * @param amount Total amount to process (will be unstaked)
+     * @param whistleblowerReward Amount to send to the whistleblower/reporter
+     * @param reporter Address of the whistleblower (block proposer who included evidence)
      */
-    function lockStakeForSlashing(address validator, uint256 amount) external {
+    function lockStakeForSlashing(
+        address validator,
+        uint256 amount,
+        uint256 whistleblowerReward,
+        address reporter
+    ) external {
         require(msg.sender == address(slashingContract), "Only Slashing contract");
         require(amount > 0, "Amount must be > 0");
         require(stakeOf(validator) >= amount, "Insufficient stake");
+        require(whistleblowerReward <= amount, "Reward exceeds amount");
 
         // Unstake from active stake (removes from validator set)
         // The Unstaked event will be emitted by _unstake
         _unstake(validator, amount);
 
-        // The withdrawn amount is now held by this contract
+        // Transfer whistleblower reward if configured
+        if (whistleblowerReward > 0 && reporter != address(0)) {
+            (bool success, ) = payable(reporter).call{value: whistleblowerReward}("");
+            require(success, "Whistleblower reward transfer failed");
+        }
+
+        // The remaining amount (amount - whistleblowerReward) stays in this contract
         // and will be handled by Slashing contract governance functions (burn/treasury)
     }
 

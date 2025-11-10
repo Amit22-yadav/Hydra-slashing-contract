@@ -54,7 +54,14 @@ interface IHydraStaking is IDelegatedStaking, ILiquidStaking, IPenalizeableStaki
     /**
      * @notice Lock validator's stake for slashing (called by Slashing contract)
      * @param validator Address of the validator to slash
-     * @param amount Amount to lock
+     * @param amount Total amount to process (will be unstaked)
+     * @param whistleblowerReward Amount to send to the whistleblower/reporter
+     * @param reporter Address of the whistleblower (block proposer who included evidence)
      */
-    function lockStakeForSlashing(address validator, uint256 amount) external;
+    function lockStakeForSlashing(
+        address validator,
+        uint256 amount,
+        uint256 whistleblowerReward,
+        address reporter
+    ) external;
 }
