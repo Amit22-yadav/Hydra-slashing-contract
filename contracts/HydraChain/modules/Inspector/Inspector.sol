@@ -15,9 +15,9 @@ import {PenalizedStakeDistribution} from "../../../HydraStaking/modules/Penalize
 import {ValidatorManager, ValidatorStatus, ValidatorInit} from "../ValidatorManager/ValidatorManager.sol";
 import {IInspector} from "./IInspector.sol";
 
-// Interface for Slashing contract with lockFunds function
+// Interface for Slashing contract with fund locking functions
 interface ISlashingWithLock {
-    function lockFunds(address validator) external payable;
+    function lockSlashedFunds(address validator, uint256 amount) external;
 }
 
 /**
@@ -26,6 +26,15 @@ interface ISlashingWithLock {
  * @dev Works with Slashing contract to validate evidence and lock slashed funds
  */
 abstract contract Inspector is IInspector, ValidatorManager {
+    // Debug event to track validator status during slashing
+    event DebugValidatorStatus(
+        address indexed validator,
+        ValidatorStatus currentStatus,
+        bool hasBeenSlashed,
+        uint256 stake,
+        address slashingContract
+    );
+
     /// @notice The penalty that will be taken and burned from the bad validator's staked amount
     uint256 public validatorPenalty;
     /// @notice The reward for the person who reports a validator that have to be banned
@@ -46,7 +55,8 @@ abstract contract Inspector is IInspector, ValidatorManager {
     address public slashingContract;
 
     modifier onlySlashing() {
-        if (msg.sender != slashingContract) revert OnlySlashing();
+        // Allow calls from slashing contract OR from SYSTEM address (for state transaction flow)
+        if (msg.sender != slashingContract && msg.sender != SYSTEM) revert OnlySlashing();
         _;
     }
 
@@ -135,6 +145,16 @@ abstract contract Inspector is IInspector, ValidatorManager {
      */
     function slashValidator(address validator, string calldata reason) external onlySlashing {
         if (validator == address(0)) revert InvalidValidatorAddress();
+
+        // Debug: Log validator status before checks
+        emit DebugValidatorStatus(
+            validator,
+            validators[validator].status,
+            _hasBeenSlashed[validator],
+            hydraStakingContract.stakeOf(validator),
+            slashingContract
+        );
+
         if (validators[validator].status != ValidatorStatus.Active) revert ValidatorNotActive();
         if (_hasBeenSlashed[validator]) revert ValidatorAlreadySlashed();
         if (bytes(reason).length > 100) revert ReasonStringTooLong();
@@ -145,19 +165,17 @@ abstract contract Inspector is IInspector, ValidatorManager {
         uint256 currentStake = hydraStakingContract.stakeOf(validator);
         if (currentStake == 0) revert NoStakeToSlash();
 
-        uint256 penaltyAmount = currentStake;
+        // Call Slashing contract to lock the funds
+        // Funds stay in HydraStaking but are locked for 30 days
+        ISlashingWithLock(slashingContract).lockSlashedFunds(validator, currentStake);
 
-        PenalizedStakeDistribution[] memory distributions = new PenalizedStakeDistribution[](1);
-        distributions[0] = PenalizedStakeDistribution({
-            account: address(this),
-            amount: penaltyAmount
-        });
+        // Mark validator as banned
+        if (validators[validator].status == ValidatorStatus.Active) {
+            activeValidatorsCount--;
+        }
+        validators[validator].status = ValidatorStatus.Banned;
 
-        hydraStakingContract.penalizeStaker(validator, distributions);
-        ISlashingWithLock(slashingContract).lockFunds{value: penaltyAmount}(validator);
-
-        _ban(validator);
-
+        emit ValidatorBanned(validator);
         emit ValidatorSlashed(validator, reason);
     }
 

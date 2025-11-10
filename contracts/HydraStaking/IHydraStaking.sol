@@ -50,4 +50,11 @@ interface IHydraStaking is IDelegatedStaking, ILiquidStaking, IPenalizeableStaki
      * @notice Returns total staked balance for all stakers and delegators
      */
     function totalBalance() external view returns (uint256);
+
+    /**
+     * @notice Lock validator's stake for slashing (called by Slashing contract)
+     * @param validator Address of the validator to slash
+     * @param amount Amount to lock
+     */
+    function lockStakeForSlashing(address validator, uint256 amount) external;
 }

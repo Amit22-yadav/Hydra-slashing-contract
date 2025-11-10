@@ -50,6 +50,29 @@ contract HydraStaking is
         inspectorContract = _inspector;
     }
 
+    function setSlashingContract(address _slashing) external onlySystemCall {
+        slashingContract = Slashing(_slashing);
+    }
+
+    /**
+     * @notice Lock validator's stake for slashing (called by Slashing contract)
+     * @dev Removes stake from active balance and locks it for governance decision
+     * @param validator Address of the validator to slash
+     * @param amount Amount to lock
+     */
+    function lockStakeForSlashing(address validator, uint256 amount) external {
+        require(msg.sender == address(slashingContract), "Only Slashing contract");
+        require(amount > 0, "Amount must be > 0");
+        require(stakeOf(validator) >= amount, "Insufficient stake");
+
+        // Unstake from active stake (removes from validator set)
+        // The Unstaked event will be emitted by _unstake
+        _unstake(validator, amount);
+
+        // The withdrawn amount is now held by this contract
+        // and will be handled by Slashing contract governance functions (burn/treasury)
+    }
+
     // _______________ Initializer _______________
 
     /**
