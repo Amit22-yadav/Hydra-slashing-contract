@@ -4,6 +4,7 @@ pragma solidity ^0.8.17;
 import {ISlashing, IBFTMessage} from "./ISlashing.sol";
 import {System} from "../../../common/System/System.sol";
 import {IInspector} from "../../../HydraChain/modules/Inspector/IInspector.sol";
+import {IHydraStaking} from "../../IHydraStaking.sol";
 
 /**
  * @title Slashing
@@ -29,6 +30,9 @@ contract Slashing is ISlashing, System {
 
     /// @notice Reference to the HydraChain contract (Inspector module)
     address public hydraChainContract;
+
+    /// @notice Reference to the HydraStaking contract
+    address public hydraStakingContract;
 
     /// @notice Address that can withdraw funds after lock period (governance)
     address public governance;
@@ -105,6 +109,7 @@ contract Slashing is ISlashing, System {
     /// @notice Debug events for slashing validation steps
     event SlashingStepCompleted(string step, address validator);
     event SlashingValidationFailed(string step, address validator, string reason);
+    event MsgSenderDebug(string location, address msgSender, address txOrigin, address expectedSlashing, address expectedSystem);
 
     /// @notice Emitted when contract is initialized
     event SlashingContractInitialized(address hydraChain, address governance);
@@ -121,21 +126,25 @@ contract Slashing is ISlashing, System {
     /**
      * @notice Initializer for upgradeable pattern
      * @param hydraChainAddr Address of the HydraChain contract
+     * @param hydraStakingAddr Address of the HydraStaking contract
      * @param governanceAddr Address of governance (can withdraw after lock period)
      * @param daoTreasuryAddr Address of DAO treasury (optional destination)
      * @param initialMaxSlashingsPerBlock Initial max slashings per block
      */
     function initialize(
         address hydraChainAddr,
+        address hydraStakingAddr,
         address governanceAddr,
         address daoTreasuryAddr,
         uint256 initialMaxSlashingsPerBlock
     ) external onlySystemCall {
         require(!_initialized, "Already initialized");
         require(hydraChainAddr != address(0), "Invalid HydraChain address");
+        require(hydraStakingAddr != address(0), "Invalid HydraStaking address");
         require(governanceAddr != address(0), "Invalid governance address");
 
         hydraChainContract = hydraChainAddr;
+        hydraStakingContract = hydraStakingAddr;
         governance = governanceAddr;
         daoTreasury = daoTreasuryAddr; // Can be zero address initially
         maxSlashingsPerBlock = initialMaxSlashingsPerBlock;
@@ -233,27 +242,111 @@ contract Slashing is ISlashing, System {
     }
 
     /**
-     * @notice Lock slashed funds for a validator with 30-day lock period
-     * @dev Called by Inspector contract during slashing
-     * @param validator Address of the slashed validator
+     * @notice Gas-optimized slashing function using pre-computed hashes
+     * @dev This function accepts message hashes instead of full data to reduce gas costs
+     * @param validator Address of the validator being slashed
+     * @param msg1Hash Keccak256 hash of the first IBFT message data
+     * @param msg1Sig Signature of the first message (65 bytes: r, s, v)
+     * @param msg2Hash Keccak256 hash of the second IBFT message data
+     * @param msg2Sig Signature of the second message (65 bytes: r, s, v)
+     * @param height Block height of the double signing
+     * @param round Consensus round of the double signing
+     * @param msgType IBFT message type
+     * @param reason Reason for slashing (e.g., "double-signing")
      */
-    function lockFunds(address validator) external payable onlySystemCall {
-        require(msg.value > 0, "No funds to lock");
+    function slashValidatorOptimized(
+        address validator,
+        bytes32 msg1Hash,
+        bytes memory msg1Sig,
+        bytes32 msg2Hash,
+        bytes memory msg2Sig,
+        uint64 height,
+        uint64 round,
+        uint8 msgType,
+        string calldata reason
+    ) external onlySystemCall {
+        emit SlashingStepCompleted("slashValidatorOptimized_started", validator);
+
+        // Protection checks
+        emit SlashingStepCompleted("checking_validator_address", validator);
+        if (validator == address(0)) revert InvalidValidatorAddress();
+
+        emit SlashingStepCompleted("checking_already_slashed", validator);
+        if (_hasBeenSlashed[validator]) revert ValidatorAlreadySlashed();
+
+        emit SlashingStepCompleted("checking_hash_equality", validator);
+        if (msg1Hash == msg2Hash) revert EvidenceMismatch("identical data hashes");
+
+        emit SlashingStepCompleted("checking_max_slashings", validator);
+        if (slashingsInBlock[block.number] >= maxSlashingsPerBlock) revert MaxSlashingsExceeded();
+
+        emit SlashingStepCompleted("about_to_recover_msg1_signer", validator);
+        // Verify ECDSA signatures using pre-computed hashes
+        address recovered1 = _recoverSigner(msg1Hash, msg1Sig);
+        emit SlashingStepCompleted("msg1_signer_recovered", recovered1);
+
+        if (recovered1 != validator) {
+            revert InvalidSignature("msg1 signature does not match validator");
+        }
+        emit SlashingStepCompleted("msg1_verification_passed", validator);
+
+        emit SlashingStepCompleted("about_to_recover_msg2_signer", validator);
+        address recovered2 = _recoverSigner(msg2Hash, msg2Sig);
+        emit SlashingStepCompleted("msg2_signer_recovered", recovered2);
+
+        if (recovered2 != validator) {
+            revert InvalidSignature("msg2 signature does not match validator");
+        }
+        emit SlashingStepCompleted("msg2_verification_passed", validator);
+
+        // Store evidence and mark as slashed
+        emit SlashingStepCompleted("storing_evidence", validator);
+        slashingEvidenceHash[validator] = keccak256(abi.encodePacked(msg1Hash, msg2Hash));
+        _hasBeenSlashed[validator] = true;
+        slashingsInBlock[block.number]++;
+
+        // Emit events and execute slashing
+        emit SlashingStepCompleted("emitting_double_sign_evidence", validator);
+        emit DoubleSignEvidence(validator, slashingEvidenceHash[validator], height, round, msg1Hash, msg2Hash);
+
+        emit SlashingStepCompleted("calling_inspector_slashValidator", validator);
+        // Direct call without try-catch
+        IInspector(hydraChainContract).slashValidator(validator, reason);
+        emit SlashingStepCompleted("hydrachain_call_completed", validator);
+
+        emit SlashingStepCompleted("slashing_completed_successfully", validator);
+        emit ValidatorSlashed(validator, reason);
+    }
+
+    /**
+     * @notice Lock slashed funds for a validator (funds stay in HydraStaking)
+     * @dev Called by Inspector contract during slashing. Removes from active stake and locks for governance decision.
+     * @param validator Address of the slashed validator
+     * @param amount Amount to lock
+     */
+    function lockSlashedFunds(address validator, uint256 amount) external {
+        // Allow calls from HydraChain contract (Inspector) during slashing flow
+        require(msg.sender == hydraChainContract || msg.sender == SYSTEM, "Only HydraChain or SYSTEM can lock funds");
+        require(amount > 0, "No funds to lock");
         require(validator != address(0), "Invalid validator address");
 
+        // Call HydraStaking to remove stake from active balance
+        IHydraStaking(hydraStakingContract).lockStakeForSlashing(validator, amount);
+
+        // Record the locked amount (funds stay in HydraStaking contract)
         if (lockedFunds[validator].amount > 0 && !lockedFunds[validator].withdrawn) {
-            lockedFunds[validator].amount += msg.value;
+            lockedFunds[validator].amount += amount;
             lockedFunds[validator].lockTimestamp = block.timestamp;
         } else {
             lockedFunds[validator] = LockedFunds({
-                amount: msg.value,
+                amount: amount,
                 lockTimestamp: block.timestamp,
                 withdrawn: false
             });
         }
 
         uint256 unlockTime = block.timestamp + LOCK_PERIOD;
-        emit FundsLocked(validator, msg.value, unlockTime);
+        emit FundsLocked(validator, amount, unlockTime);
     }
 
     /**
@@ -375,6 +468,61 @@ contract Slashing is ISlashing, System {
      */
     function ping() external pure returns (bool) {
         return true;
+    }
+
+    /**
+     * @notice TEST ONLY - Slash validator without onlySystemCall restriction
+     * @dev WARNING: Remove this function in production! Only for testing slashing logic
+     * @param validator Address of the validator to slash
+     * @param msg1Hash Hash of first conflicting message
+     * @param msg1Sig Signature of first message (65 bytes: r, s, v)
+     * @param msg2Hash Hash of second conflicting message
+     * @param msg2Sig Signature of second message (65 bytes: r, s, v)
+     * @param height Block height where double-signing occurred
+     * @param round Round number
+     * @param msgType Message type (0=PREPREPARE, 1=PREPARE, 2=COMMIT)
+     * @param reason Reason for slashing
+     */
+    function slashValidatorTest(
+        address validator,
+        bytes32 msg1Hash,
+        bytes memory msg1Sig,
+        bytes32 msg2Hash,
+        bytes memory msg2Sig,
+        uint64 height,
+        uint64 round,
+        uint8 msgType,
+        string calldata reason
+    ) external {
+        // Protection checks
+        if (validator == address(0)) revert InvalidValidatorAddress();
+        if (_hasBeenSlashed[validator]) revert ValidatorAlreadySlashed();
+        if (msg1Hash == msg2Hash) revert EvidenceMismatch("identical data hashes");
+        if (slashingsInBlock[block.number] >= maxSlashingsPerBlock) revert MaxSlashingsExceeded();
+
+        // Verify ECDSA signatures
+        address recovered1 = _recoverSigner(msg1Hash, msg1Sig);
+        if (recovered1 != validator) {
+            revert InvalidSignature("msg1 signature does not match validator");
+        }
+
+        address recovered2 = _recoverSigner(msg2Hash, msg2Sig);
+        if (recovered2 != validator) {
+            revert InvalidSignature("msg2 signature does not match validator");
+        }
+
+        // Store evidence and mark as slashed
+        slashingEvidenceHash[validator] = keccak256(abi.encodePacked(msg1Hash, msg2Hash));
+        _hasBeenSlashed[validator] = true;
+        slashingsInBlock[block.number]++;
+
+        // Emit events
+        emit DoubleSignEvidence(validator, slashingEvidenceHash[validator], height, round, msg1Hash, msg2Hash);
+        emit ValidatorSlashed(validator, reason);
+
+        // NOTE: Not calling HydraChain.slashValidator() in test function
+        // because it requires onlySlashing modifier. In production, use slashValidatorOptimized()
+        // IInspector(hydraChainContract).slashValidator(validator, reason);
     }
 
     /**
