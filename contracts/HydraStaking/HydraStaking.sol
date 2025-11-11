@@ -41,6 +41,10 @@ contract HydraStaking is
     /// @notice Inspector contract reference
     address public inspectorContract;
 
+    /// @notice Total slashed funds locked in this contract (reserved for governance)
+    /// @dev These funds are deducted from available balance for withdrawals
+    uint256 public totalSlashedFundsLocked;
+
     modifier onlyInspector() {
         if (msg.sender != inspectorContract) revert OnlyInspector();
         _;
@@ -73,18 +77,73 @@ contract HydraStaking is
         require(stakeOf(validator) >= amount, "Insufficient stake");
         require(whistleblowerReward <= amount, "Reward exceeds amount");
 
+        // Calculate locked amount before any state changes
+        uint256 amountToLock = amount - whistleblowerReward;
+
+        // Validate contract has sufficient balance to lock the slashed funds
+        // This prevents accounting inconsistencies where totalSlashedFundsLocked > contract balance
+        require(
+            address(this).balance >= totalSlashedFundsLocked + amountToLock,
+            "Insufficient contract balance to lock slashed funds"
+        );
+
+        // STEP 1: All state changes (Checks-Effects-Interactions pattern)
         // Unstake from active stake (removes from validator set)
         // The Unstaked event will be emitted by _unstake
         _unstake(validator, amount);
 
+        // Track the locked slashed funds to prevent validator withdrawals
+        totalSlashedFundsLocked += amountToLock;
+
+        // STEP 2: External call LAST to prevent reentrancy
         // Transfer whistleblower reward if configured
         if (whistleblowerReward > 0 && reporter != address(0)) {
             (bool success, ) = payable(reporter).call{value: whistleblowerReward}("");
             require(success, "Whistleblower reward transfer failed");
         }
 
-        // The remaining amount (amount - whistleblowerReward) stays in this contract
-        // and will be handled by Slashing contract governance functions (burn/treasury)
+        // Note: The 30-day lock period is enforced by Slashing contract's lockedFunds mapping
+        // This prevents governance from calling burn/treasury functions until 30 days pass
+    }
+
+    /**
+     * @notice Burn slashed funds (called by Slashing contract governance)
+     * @dev Only callable by Slashing contract after governance approval
+     * @param amount Amount to burn
+     */
+    function burnSlashedFunds(uint256 amount) external {
+        require(msg.sender == address(slashingContract), "Only Slashing contract");
+        require(amount > 0, "Amount must be > 0");
+        require(totalSlashedFundsLocked >= amount, "Insufficient locked funds");
+        require(address(this).balance >= amount, "Insufficient contract balance");
+
+        // Deduct from locked funds tracker
+        totalSlashedFundsLocked -= amount;
+
+        // Burn by sending to address(0)
+        (bool success, ) = address(0).call{value: amount}("");
+        require(success, "Burn transfer failed");
+    }
+
+    /**
+     * @notice Send slashed funds to DAO treasury (called by Slashing contract governance)
+     * @dev Only callable by Slashing contract after governance approval
+     * @param amount Amount to send to treasury
+     * @param treasury Address of the DAO treasury
+     */
+    function sendSlashedFundsToTreasury(uint256 amount, address treasury) external {
+        require(msg.sender == address(slashingContract), "Only Slashing contract");
+        require(amount > 0, "Amount must be > 0");
+        require(treasury != address(0), "Invalid treasury address");
+        require(totalSlashedFundsLocked >= amount, "Insufficient locked funds");
+        require(address(this).balance >= amount, "Insufficient contract balance");
+
+        // Deduct from locked funds tracker
+        totalSlashedFundsLocked -= amount;
+
+        // Send to DAO treasury
+        (bool success, ) = treasury.call{value: amount}("");
+        require(success, "Treasury transfer failed");
     }
 
     // _______________ Initializer _______________
@@ -331,6 +390,21 @@ contract HydraStaking is
         }
 
         return totalBalanceOf(account);
+    }
+
+    /**
+     * @notice Override withdrawal to protect slashed funds from being withdrawn by validators
+     * @dev Ensures locked slashed funds cannot be withdrawn through normal withdrawal process
+     * @param to Withdrawal destination address
+     * @param amount Amount to withdraw
+     */
+    function _withdraw(address to, uint256 amount) internal override {
+        // Calculate available balance (total balance - locked slashed funds)
+        uint256 availableBalance = address(this).balance - totalSlashedFundsLocked;
+        require(amount <= availableBalance, "Withdrawal would use locked slashed funds");
+
+        // Call parent implementation (from Withdrawal.sol)
+        super._withdraw(to, amount);
     }
 
     // _______________ Private functions _______________

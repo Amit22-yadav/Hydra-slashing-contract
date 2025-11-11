@@ -64,4 +64,17 @@ interface IHydraStaking is IDelegatedStaking, ILiquidStaking, IPenalizeableStaki
         uint256 whistleblowerReward,
         address reporter
     ) external;
+
+    /**
+     * @notice Burn slashed funds (called by Slashing contract governance)
+     * @param amount Amount to burn (send to address(0))
+     */
+    function burnSlashedFunds(uint256 amount) external;
+
+    /**
+     * @notice Send slashed funds to DAO treasury (called by Slashing contract governance)
+     * @param amount Amount to send to treasury
+     * @param treasury Address of the DAO treasury
+     */
+    function sendSlashedFundsToTreasury(uint256 amount, address treasury) external;
 }
