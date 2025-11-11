@@ -1441,6 +1441,26 @@ event AddedToWhitelist(address indexed validator)
 |---|---|---|
 | validator `indexed` | address | undefined |
 
+### DebugValidatorStatus
+
+```solidity
+event DebugValidatorStatus(address indexed validator, enum ValidatorStatus currentStatus, bool hasBeenSlashed, uint256 stake, address slashingContract)
+```
+
+
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| validator `indexed` | address | undefined |
+| currentStatus  | enum ValidatorStatus | undefined |
+| hasBeenSlashed  | bool | undefined |
+| stake  | uint256 | undefined |
+| slashingContract  | address | undefined |
+
 ### Initialized
 
 ```solidity

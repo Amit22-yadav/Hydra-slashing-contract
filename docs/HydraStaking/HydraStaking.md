@@ -180,6 +180,22 @@ function aprCalculatorContract() external view returns (contract IAPRCalculator)
 |---|---|---|
 | _0 | contract IAPRCalculator | undefined |
 
+### burnSlashedFunds
+
+```solidity
+function burnSlashedFunds(uint256 amount) external nonpayable
+```
+
+Burn slashed funds (called by Slashing contract governance)
+
+*Only callable by Slashing contract after governance approval*
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| amount | uint256 | Amount to burn |
+
 ### calcVestedStakingPositionPenalty
 
 ```solidity
@@ -618,6 +634,25 @@ function liquidityDebts(address) external view returns (int256)
 |---|---|---|
 | _0 | int256 | undefined |
 
+### lockStakeForSlashing
+
+```solidity
+function lockStakeForSlashing(address validator, uint256 amount, uint256 whistleblowerReward, address reporter) external nonpayable
+```
+
+Lock validator&#39;s stake for slashing (called by Slashing contract)
+
+*Removes stake from active balance, distributes whistleblower reward, and locks remainder*
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| validator | address | Address of the validator to slash |
+| amount | uint256 | Total amount to process (will be unstaked) |
+| whistleblowerReward | uint256 | Amount to send to the whistleblower/reporter |
+| reporter | address | Address of the whistleblower (block proposer who included evidence) |
+
 ### minStake
 
 ```solidity
@@ -790,6 +825,23 @@ function rewardWalletContract() external view returns (contract IRewardWallet)
 |---|---|---|
 | _0 | contract IRewardWallet | undefined |
 
+### sendSlashedFundsToTreasury
+
+```solidity
+function sendSlashedFundsToTreasury(uint256 amount, address treasury) external nonpayable
+```
+
+Send slashed funds to DAO treasury (called by Slashing contract governance)
+
+*Only callable by Slashing contract after governance approval*
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| amount | uint256 | Amount to send to treasury |
+| treasury | address | Address of the DAO treasury |
+
 ### setInspectorContract
 
 ```solidity
@@ -821,6 +873,22 @@ sets a new penalty rate
 | Name | Type | Description |
 |---|---|---|
 | newRate | uint256 | the new penalty rate |
+
+### setSlashingContract
+
+```solidity
+function setSlashingContract(address _slashing) external nonpayable
+```
+
+
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| _slashing | address | undefined |
 
 ### slashingContract
 
@@ -1028,6 +1096,23 @@ Returns total balance staked + delegated
 | Name | Type | Description |
 |---|---|---|
 | staker | address | The address of the staker |
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | uint256 | undefined |
+
+### totalSlashedFundsLocked
+
+```solidity
+function totalSlashedFundsLocked() external view returns (uint256)
+```
+
+Total slashed funds locked in this contract (reserved for governance)
+
+*These funds are deducted from available balance for withdrawals*
+
 
 #### Returns
 

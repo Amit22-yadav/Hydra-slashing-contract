@@ -54,25 +54,6 @@ Check if a validator has been slashed
 |---|---|---|
 | _0 | bool | True if the validator has been slashed |
 
-### slashValidator
-
-```solidity
-function slashValidator(address validator, IBFTMessage msg1, IBFTMessage msg2, string reason) external nonpayable
-```
-
-
-
-
-
-#### Parameters
-
-| Name | Type | Description |
-|---|---|---|
-| validator | address | undefined |
-| msg1 | IBFTMessage | undefined |
-| msg2 | IBFTMessage | undefined |
-| reason | string | undefined |
-
 
 
 ## Events
