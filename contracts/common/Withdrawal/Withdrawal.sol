@@ -70,7 +70,7 @@ abstract contract Withdrawal is IWithdrawal, ReentrancyGuardUpgradeable, Governe
         emit WithdrawalRegistered(account, amount);
     }
 
-    function _withdraw(address to, uint256 amount) internal {
+    function _withdraw(address to, uint256 amount) internal virtual {
         // slither-disable-next-line arbitrary-send-eth
         (bool success, ) = to.call{value: amount}("");
         if (!success) revert WithdrawalFailed();
