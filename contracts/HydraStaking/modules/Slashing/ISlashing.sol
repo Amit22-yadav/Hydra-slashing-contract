@@ -20,20 +20,6 @@ interface ISlashing {
     // _______________ External Functions _______________
 
     /**
-     * @notice Slashes a validator's stake for double-signing with cryptographic evidence
-     * @param validator The address of the validator to slash
-     * @param msg1 First conflicting IBFT message
-     * @param msg2 Second conflicting IBFT message
-     * @param reason The reason for slashing
-     */
-    function slashValidator(
-        address validator,
-        IBFTMessage calldata msg1,
-        IBFTMessage calldata msg2,
-        string calldata reason
-    ) external;
-
-    /**
      * @notice Check if a validator has been slashed
      * @param validator Address of the validator
      * @return True if the validator has been slashed
