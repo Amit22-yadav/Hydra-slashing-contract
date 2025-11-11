@@ -419,9 +419,8 @@ contract Slashing is ISlashing, System {
         uint256 amount = lockedFunds[validator].amount;
         lockedFunds[validator].withdrawn = true;
 
-        // Burn by sending to address(0)
-        (bool success, ) = address(0).call{value: amount}("");
-        if (!success) revert TransferFailed();
+        // Call HydraStaking to burn the funds from its balance
+        IHydraStaking(hydraStakingContract).burnSlashedFunds(amount);
 
         emit FundsBurned(validator, amount, msg.sender);
     }
@@ -438,9 +437,8 @@ contract Slashing is ISlashing, System {
         uint256 amount = lockedFunds[validator].amount;
         lockedFunds[validator].withdrawn = true;
 
-        // Send to DAO treasury
-        (bool success, ) = daoTreasury.call{value: amount}("");
-        if (!success) revert TransferFailed();
+        // Call HydraStaking to send the funds to treasury from its balance
+        IHydraStaking(hydraStakingContract).sendSlashedFundsToTreasury(amount, daoTreasury);
 
         emit FundsSentToTreasury(validator, amount, daoTreasury);
     }
@@ -462,9 +460,12 @@ contract Slashing is ISlashing, System {
             uint256 amount = lockedFunds[validator].amount;
             lockedFunds[validator].withdrawn = true;
 
-            (bool success, ) = address(0).call{value: amount}("");
-            if (success) {
+            // Call HydraStaking to burn the funds
+            try IHydraStaking(hydraStakingContract).burnSlashedFunds(amount) {
                 emit FundsBurned(validator, amount, msg.sender);
+            } catch {
+                // Revert the withdrawn flag if burn failed
+                lockedFunds[validator].withdrawn = false;
             }
         }
     }
@@ -488,9 +489,12 @@ contract Slashing is ISlashing, System {
             uint256 amount = lockedFunds[validator].amount;
             lockedFunds[validator].withdrawn = true;
 
-            (bool success, ) = daoTreasury.call{value: amount}("");
-            if (success) {
+            // Call HydraStaking to send funds to treasury
+            try IHydraStaking(hydraStakingContract).sendSlashedFundsToTreasury(amount, daoTreasury) {
                 emit FundsSentToTreasury(validator, amount, daoTreasury);
+            } catch {
+                // Revert the withdrawn flag if transfer failed
+                lockedFunds[validator].withdrawn = false;
             }
         }
     }
