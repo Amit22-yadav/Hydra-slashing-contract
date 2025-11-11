@@ -367,10 +367,27 @@ Reference to the HydraChain contract (Inspector module)
 |---|---|---|
 | _0 | address | undefined |
 
+### hydraStakingContract
+
+```solidity
+function hydraStakingContract() external view returns (address)
+```
+
+Reference to the HydraStaking contract
+
+
+
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | address | undefined |
+
 ### initialize
 
 ```solidity
-function initialize(address hydraChainAddr, address governanceAddr, address daoTreasuryAddr, uint256 initialMaxSlashingsPerBlock) external nonpayable
+function initialize(address hydraChainAddr, address hydraStakingAddr, address governanceAddr, address daoTreasuryAddr, uint256 initialMaxSlashingsPerBlock, uint256 initialWhistleblowerRewardPercentage) external nonpayable
 ```
 
 Initializer for upgradeable pattern
@@ -382,9 +399,11 @@ Initializer for upgradeable pattern
 | Name | Type | Description |
 |---|---|---|
 | hydraChainAddr | address | Address of the HydraChain contract |
+| hydraStakingAddr | address | Address of the HydraStaking contract |
 | governanceAddr | address | Address of governance (can withdraw after lock period) |
 | daoTreasuryAddr | address | Address of DAO treasury (optional destination) |
 | initialMaxSlashingsPerBlock | uint256 | Initial max slashings per block |
+| initialWhistleblowerRewardPercentage | uint256 | Initial whistleblower reward (basis points, e.g., 500 = 5%) |
 
 ### isUnlocked
 
@@ -408,21 +427,22 @@ Check if funds are unlocked and ready for withdrawal
 |---|---|---|
 | _0 | bool | True if funds can be withdrawn |
 
-### lockFunds
+### lockSlashedFunds
 
 ```solidity
-function lockFunds(address validator) external payable
+function lockSlashedFunds(address validator, uint256 amount) external nonpayable
 ```
 
-Lock slashed funds for a validator with 30-day lock period
+Lock slashed funds for a validator (funds stay in HydraStaking)
 
-*Called by Inspector contract during slashing*
+*Called by Inspector contract during slashing. Removes from active stake and locks for governance decision.      Automatically distributes whistleblower reward to the reporter if configured.*
 
 #### Parameters
 
 | Name | Type | Description |
 |---|---|---|
 | validator | address | Address of the slashed validator |
+| amount | uint256 | Amount to lock |
 
 ### lockedFunds
 
@@ -464,23 +484,6 @@ Maximum validators that can be slashed in a single block
 | Name | Type | Description |
 |---|---|---|
 | _0 | uint256 | undefined |
-
-### ping
-
-```solidity
-function ping() external pure returns (bool)
-```
-
-Test function to verify contract is callable
-
-
-
-
-#### Returns
-
-| Name | Type | Description |
-|---|---|---|
-| _0 | bool | Always returns true |
 
 ### sendToTreasury
 
@@ -546,24 +549,46 @@ Update the maximum slashings allowed per block
 |---|---|---|
 | newMax | uint256 | New maximum slashings per block |
 
-### slashValidator
+### setWhistleblowerRewardPercentage
 
 ```solidity
-function slashValidator(address validator, IBFTMessage msg1, IBFTMessage msg2, string reason) external nonpayable
+function setWhistleblowerRewardPercentage(uint256 newPercentage) external nonpayable
 ```
 
+Update the whistleblower reward percentage
 
-
-
+*Reward must not exceed 10% (1000 basis points)*
 
 #### Parameters
 
 | Name | Type | Description |
 |---|---|---|
-| validator | address | undefined |
-| msg1 | IBFTMessage | undefined |
-| msg2 | IBFTMessage | undefined |
-| reason | string | undefined |
+| newPercentage | uint256 | New reward percentage in basis points (e.g., 500 = 5%) |
+
+### slashValidator
+
+```solidity
+function slashValidator(address validator, bytes32 msg1Hash, bytes msg1Sig, bytes32 msg2Hash, bytes msg2Sig, uint64 height, uint64 round, uint8 msgType, string reason, address reporter) external nonpayable
+```
+
+Gas-optimized slashing function using pre-computed hashes
+
+*This function accepts message hashes instead of full data to reduce gas costs*
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| validator | address | Address of the validator being slashed |
+| msg1Hash | bytes32 | Keccak256 hash of the first IBFT message data |
+| msg1Sig | bytes | Signature of the first message (65 bytes: r, s, v) |
+| msg2Hash | bytes32 | Keccak256 hash of the second IBFT message data |
+| msg2Sig | bytes | Signature of the second message (65 bytes: r, s, v) |
+| height | uint64 | Block height of the double signing |
+| round | uint64 | Consensus round of the double signing |
+| msgType | uint8 | IBFT message type |
+| reason | string | Reason for slashing (e.g., &quot;double-signing&quot;) |
+| reporter | address | Address of the validator who reported/included this evidence (block proposer) |
 
 ### slashingEvidenceHash
 
@@ -587,6 +612,28 @@ Mapping to store evidence hash for each slashed validator (for auditing)
 |---|---|---|
 | _0 | bytes32 | undefined |
 
+### slashingReporter
+
+```solidity
+function slashingReporter(address) external view returns (address)
+```
+
+Mapping to track reporter (whistleblower) for each slashed validator
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | address | undefined |
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | address | undefined |
+
 ### slashingsInBlock
 
 ```solidity
@@ -609,25 +656,26 @@ Tracks slashings per block for protection
 |---|---|---|
 | _0 | uint256 | undefined |
 
-
-
-## Events
-
-### BLSVerificationSkipUpdated
+### whistleblowerRewardPercentage
 
 ```solidity
-event BLSVerificationSkipUpdated(bool skip)
+function whistleblowerRewardPercentage() external view returns (uint256)
 ```
 
-Emitted when BLS verification skip flag is updated
+Whistleblower reward percentage (in basis points, e.g., 500 = 5%)
 
 
 
-#### Parameters
+
+#### Returns
 
 | Name | Type | Description |
 |---|---|---|
-| skip  | bool | undefined |
+| _0 | uint256 | undefined |
+
+
+
+## Events
 
 ### DaoTreasuryUpdated
 
@@ -649,7 +697,7 @@ Emitted when DAO treasury address is updated
 ### DoubleSignEvidence
 
 ```solidity
-event DoubleSignEvidence(address indexed validator, bytes32 evidenceHash, uint64 height, uint64 round, bytes32 msg1Hash, bytes32 msg2Hash)
+event DoubleSignEvidence(address indexed validator, bytes32 evidenceHash, uint64 height, uint64 round, uint8 msgType, bytes32 msg1Hash, bytes32 msg2Hash)
 ```
 
 Emitted when double-signing evidence is validated and stored
@@ -664,6 +712,7 @@ Emitted when double-signing evidence is validated and stored
 | evidenceHash  | bytes32 | undefined |
 | height  | uint64 | undefined |
 | round  | uint64 | undefined |
+| msgType  | uint8 | undefined |
 | msg1Hash  | bytes32 | undefined |
 | msg2Hash  | bytes32 | undefined |
 
@@ -772,41 +821,6 @@ Emitted when contract is initialized
 | hydraChain  | address | undefined |
 | governance  | address | undefined |
 
-### SlashingStepCompleted
-
-```solidity
-event SlashingStepCompleted(string step, address validator)
-```
-
-Debug events for slashing validation steps
-
-
-
-#### Parameters
-
-| Name | Type | Description |
-|---|---|---|
-| step  | string | undefined |
-| validator  | address | undefined |
-
-### SlashingValidationFailed
-
-```solidity
-event SlashingValidationFailed(string step, address validator, string reason)
-```
-
-
-
-
-
-#### Parameters
-
-| Name | Type | Description |
-|---|---|---|
-| step  | string | undefined |
-| validator  | address | undefined |
-| reason  | string | undefined |
-
 ### ValidatorSlashed
 
 ```solidity
@@ -823,6 +837,41 @@ Emitted when a validator is slashed
 |---|---|---|
 | validator `indexed` | address | undefined |
 | reason  | string | undefined |
+
+### WhistleblowerRewardPercentageUpdated
+
+```solidity
+event WhistleblowerRewardPercentageUpdated(uint256 oldPercentage, uint256 newPercentage)
+```
+
+Emitted when whistleblower reward percentage is updated
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| oldPercentage  | uint256 | undefined |
+| newPercentage  | uint256 | undefined |
+
+### WhistleblowerRewarded
+
+```solidity
+event WhistleblowerRewarded(address indexed reporter, address indexed validator, uint256 reward)
+```
+
+Emitted when whistleblower receives reward
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| reporter `indexed` | address | undefined |
+| validator `indexed` | address | undefined |
+| reward  | uint256 | undefined |
 
 
 

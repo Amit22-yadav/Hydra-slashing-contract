@@ -87,6 +87,7 @@ contract Slashing is ISlashing, System {
         bytes32 evidenceHash,
         uint64 height,
         uint64 round,
+        uint8 msgType,
         bytes32 msg1Hash,
         bytes32 msg2Hash
     );
@@ -246,7 +247,7 @@ contract Slashing is ISlashing, System {
         }
 
         // Emit events and execute slashing
-        emit DoubleSignEvidence(validator, slashingEvidenceHash[validator], height, round, msg1Hash, msg2Hash);
+        emit DoubleSignEvidence(validator, slashingEvidenceHash[validator], height, round, msgType, msg1Hash, msg2Hash);
 
         // Direct call without try-catch
         IInspector(hydraChainContract).slashValidator(validator, reason);

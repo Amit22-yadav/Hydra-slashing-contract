@@ -10,6 +10,22 @@
 
 ## Methods
 
+### burnSlashedFunds
+
+```solidity
+function burnSlashedFunds(uint256 amount) external nonpayable
+```
+
+Burn slashed funds (called by Slashing contract governance)
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| amount | uint256 | Amount to burn (send to address(0)) |
+
 ### calcVestedStakingPositionPenalty
 
 ```solidity
@@ -228,6 +244,25 @@ Returns the address of the token that is distributed as a liquidity on stake
 |---|---|---|
 | _0 | address | undefined |
 
+### lockStakeForSlashing
+
+```solidity
+function lockStakeForSlashing(address validator, uint256 amount, uint256 whistleblowerReward, address reporter) external nonpayable
+```
+
+Lock validator&#39;s stake for slashing (called by Slashing contract)
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| validator | address | Address of the validator to slash |
+| amount | uint256 | Total amount to process (will be unstaked) |
+| whistleblowerReward | uint256 | Amount to send to the whistleblower/reporter |
+| reporter | address | Address of the whistleblower (block proposer who included evidence) |
+
 ### onDelegate
 
 ```solidity
@@ -314,6 +349,23 @@ Return back a validator after temporary removal from the validator set by emitti
 | Name | Type | Description |
 |---|---|---|
 | account | address | address of the validator to be returned |
+
+### sendSlashedFundsToTreasury
+
+```solidity
+function sendSlashedFundsToTreasury(uint256 amount, address treasury) external nonpayable
+```
+
+Send slashed funds to DAO treasury (called by Slashing contract governance)
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| amount | uint256 | Amount to send to treasury |
+| treasury | address | Address of the DAO treasury |
 
 ### setPenaltyDecreasePerWeek
 
