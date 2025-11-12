@@ -19,7 +19,7 @@ export function RunWithdrawalTests(): void {
 
       await expect(
         hydraStaking.connect(unstakedValidator).withdraw(unstakedValidator.address)
-      ).to.be.revertedWithCustomError(hydraStaking, "WithdrawalFailed");
+      ).to.be.revertedWith("Withdrawal would use locked slashed funds");
     });
 
     it("should fail the withdrawal before withdraw time passes", async function () {

@@ -1,0 +1,526 @@
+✅ Generated documentation for 128 contracts
+
+
+  Slashing
+    Whistleblower Reward Distribution
+      ✔ should correctly distribute 5% whistleblower reward to reporter (44ms)
+      ✔ should not distribute reward if reporter is zero address
+      ✔ should handle configurable whistleblower percentage
+    Governance Fund Management
+      ✔ should not allow burning funds before lock period ends
+      ✔ should not allow sending to treasury before lock period ends
+      ✔ should successfully burn locked funds after lock period
+      ✔ should successfully send locked funds to treasury after lock period
+      ✔ should not allow double withdrawal of funds
+      ✔ should handle batch burn correctly (66ms)
+      ✔ should handle batch send to treasury correctly
+      ✔ should only allow governance to manage funds
+    Rate Limiting
+      ✔ should enforce max slashings per block (90ms)
+      ✔ should reset counter for new blocks (56ms)
+    Edge Cases and Security
+      ✔ should revert when slashing validator with zero stake
+      ✔ should verify evidence hash is stored correctly
+      ✔ should handle governance address update
+      ✔ should handle treasury address update
+      ✔ should calculate remaining lock time correctly
+    View Functions
+      ✔ should correctly return hasBeenSlashed
+      ✔ should correctly return evidence hash
+      ✔ should correctly return locked funds info
+      ✔ should correctly return reporter address
+      ✔ should return configuration values
+
+  Hydra Contracts
+    Common modules
+      System
+        
+          ✔ should initialize the System contract (137ms)
+      BLS
+        
+          ✔ map to point (1021ms)
+          ✔ expand message to 96 (319ms)
+          ✔ hash to field (469ms)
+          ✔ hash to point (2452ms)
+          ✔ verify aggregated signature (4164ms)
+          ✔ verify aggregated signature, same message (4186ms)
+          ✔ verify aggregated signature, aggregated public key (1294ms)
+          ✔ verify aggregated signature: fail bad signature (765ms)
+          ✔ verify aggregated signature: fail signature is not on curve
+          ✔ verify aggregated signature: fail pubkey is not on curve (38ms)
+          ✔ verify aggregated signature: fail pubkey is not on correct subgroup (55ms)
+          ✔ verify single signature (128ms)
+          ✔ verify single signature: fail bad signature (135ms)
+          ✔ verify single signature: fail pubkey is not on curve
+          ✔ verify single signature: fail signature is not on curve
+          ✔ verify single signature: fail pubkey is not on correct subgroup (39ms)
+          ✔ is on curve g1 (68ms)
+          ✔ is on curve g2 (68ms)
+      Withdrawal
+        
+          ✔ should fail the withdrawal (9440ms)
+          ✔ should fail the withdrawal before withdraw time passes
+          ✔ should give the right amount on view function with multiple stake (532ms)
+          ✔ should withdraw (61ms)
+          ✔ should fail to update withdraw time if not governance
+          ✔ should fail update withdraw time if we pass 0
+          ✔ should update withdraw time by governance account
+    APRCalculator
+      
+        Initialization
+          ✔ should validate default values when AprCalculator deployed
+          ✔ should revert initialize if not called by system
+          ✔ should initialize correctly (6643ms)
+          ✔ should revert initialize if already initialized
+          ✔ should initialize vesting bonus
+          ✔ should get max APR
+          ✔ should get max yearly reward
+        Price
+          updatePrice
+            ✔ should revert if not called by Price Oracle
+            ✔ should revert if Price Oracle gives 0 (3681ms)
+            ✔ should revert if Price Oracle gives a day that already have a price (3701ms)
+            ✔ should update price correctly (9379ms)
+          Guard Bonuses
+            ✔ should revert guardBonuses if not called by governance
+            ✔ should revert guardBonuses if already guarded
+            ✔ should guard bonuses
+            ✔ should revert guard disable if not called by governance
+            ✔ should revert guard disable if not guarded
+            ✔ should disable guard
+        RSIndex
+          ✔ should get RSI
+          Set RSIndex
+            ✔ should update RSI bonus on price update after 14 updates on price on oversold condition (4952ms)
+            ✔ should update RSI on price update on overbought condition (2618ms)
+            ✔ should emit event on RSI update (87ms)
+            ✔ should properly update average gain or loss (2766ms)
+            ✔ should properly update RSI on slowly moving the price (4013ms)
+            ✔ should have same values of RSI Bonus for data table with 300+ elements (40037ms)
+          Guard RSIndex
+            ✔ should successfully guard RSI & disable updates (117ms)
+            ✔ should disable guard and enable RSI updates (200ms)
+            ✔ should correctly handle calculations after guard up and then disabled (205ms)
+        Macro Factor
+          ✔ should get macro factor
+          Set Macro Factor
+            ✔ should emit MacroFactorSet event on price update (2742ms)
+            ✔ should update properly change SMA sum on price update (48ms)
+          Guard Macro Factor
+            ✔ should successfully guard macro factor & disable updates (48ms)
+            ✔ should disable guard and enable macro factor updates (63ms)
+            ✔ should have same values of Macro Factor for data table with 300+ elements (6137ms)
+          Change default macro factor
+            ✔ should revert if not called by governance
+            ✔ should revert if new default macro factor is not between min and max macro factor
+            ✔ should successfully change default macro factor
+    LiquidityToken
+      
+        ✔ should have default admin role set
+        ✔ should have supply controller role set
+        initialize()
+          ✔ should revert initialize from non-system address
+          ✔ should be properly initialized
+          ✔ should not be able to initialize twice
+        mint()
+          ✔ Should revert if not executed by supply controller address
+        burn()
+          ✔ Should revert if not executed by supply controller address
+        permit()
+          ✔ Should be able to transfer to the user with a permit
+        Change supply controller
+          ✔ Should revert if non-admin is trying to change supply controller
+          ✔ Should properly update the role
+    HydraChain
+      
+        HydraChain initializations
+          ✔ should validate default values when HydraChain deployed
+          ✔ should revert when initialized without system call
+          ✔ should revert with invalid signature when initializing (161ms)
+          ✔ should initialize successfully (6696ms)
+          ✔ should revert on re-initialization attempt
+        Epoch
+          ✔ should revert on commit epoch without system call
+          ✔ should revert with unexpected epoch id
+          ✔ should revert with no blocks committed
+          ✔ should revert that epoch is not divisible by epochSize
+          ✔ should revert with invalid start block
+          ✔ should commit epoch (119ms)
+          ✔ should get epoch by block
+          ✔ should get non-existent epoch by block
+        Whitelisting
+          Whitelist
+            ✔ should be modified only by the governance
+            ✔ should be able to add to whitelist
+            ✔ should not whitelist a user that is already whitelisted
+            ✔ should be able to remove from whitelist (48ms)
+            ✔ should revert if we remove from whitelist twice (51ms)
+            Enable and Disable Whitelisting
+              ✔ enable should be modified only by the governance
+              ✔ disable should be modified only by the governance
+              ✔ should not be able to enable whitelisting if it is already enabled
+              ✔ should be able to disable whitelisting
+              ✔ should not be able to enable whitelisting if it is already disabled (48ms)
+              ✔ should not be able to disable whitelisting if it is already disabled (38ms)
+              ✔ should be not able to register user that is not whitelisted if whitelisting is enabled
+              ✔ should be able to register anyone if whitelisting is disabled (509ms)
+        Dao Incentive
+          distributeDAOIncentive
+            ✔ should revert if not called by system
+            ✔ should distribute funds to the vault (139ms)
+            ✔ should have reward for 2 stakers with min stake
+          claimVaultFunds
+            ✔ should revert when there are not vault funds to claim
+            ✔ should claim vault funds (73ms)
+        Inspector
+          setValidatorPenalty
+            ✔ should revert when not governance try to set validator penalty (2180ms)
+            ✔ should set new validator penalty
+          setReporterReward
+            ✔ should revert when not governance try to set reporter reward
+            ✔ should set new reporter reward
+          setInitiateBanThreshold
+            ✔ should revert when not governance try to set initiate ban threshold
+            ✔ should set new initiate ban threshold
+          setBanThreshold
+            ✔ should revert when not governance try to set ban finish threshold
+            ✔ should set new ban finish threshold
+          Ban a validator
+            ✔ should revert when ban already initiated (1211ms)
+            ✔ should revert when the validator NoInitiateBanSubject (not active)
+            ✔ should revert when the validator is active from less than the initiate threshold (2554ms)
+            ✔ should revert when the validator is active for long time and have not met the initiate threshold (407ms)
+            ✔ should not initiate ban for a validator that have just staked, but has no uptime (133ms)
+            ✔ should not initiate ban for a validator if he is not active, and on exit he has not reached ban threshold (2765ms)
+            ✔ should not initiate ban for a validator, if he is not Active anymore (he unstake on his own) (126ms)
+            ✔ should initiate ban for a validator (69ms)
+            ✔ should lock commission for staker on initiate ban (75ms)
+            ✔ should ban a validator that has a vested staking position (1019ms)
+            ✔ should not finish ban when ban not initiated (1029ms)
+            ✔ should not finish ban when threshold not passed (205ms)
+            ✔ should not terminate ban process when such one not created
+            ✔ should terminate ban process (151ms)
+            ✔ should unlock commission for staker on terminate ban (113ms)
+            ✔ should finish ban and penalize the validator (255ms)
+            ✔ should emit WithdrawalRegistered event for the reporter with the report reward (133ms)
+            ✔ should emit WithdrawalFinished event for 0 address with validator penalty (133ms)
+            ✔ should increase liquidityDebts correctly on ban (139ms)
+            ✔ should unstake all funds & emit event on ban (138ms)
+            ✔ should not add funds to withdraw queue on ban for the banned validator (132ms)
+            ✔ should get only reporter reward, because it is more than the stake (136ms)
+            ✔ should get reporter reward, but to penalize the whole stake when penalty is more than the stake (145ms)
+            ✔ should ban the validator even if threshold is not met, if called from the governance (518ms)
+            ✔ should not ban validator if he is already banned (190ms)
+            ✔ should lock commission if validator is banned by the governance (513ms)
+            ✔ should set bansInitiate to 0 on ban (1273ms)
+            ✔ should revert stake when ban in initiated
+            ✔ should revert unstake when ban in initiated
+            ✔ should not emit event BalanceChanged on delegate if ban is initiated (124ms)
+            ✔ should not emit event BalanceChanged on undelegate if ban is initiated (249ms)
+          Withdraw banned funds
+            ✔ should revert when trying to withdraw banned funds when there is none to withdraw (183ms)
+            ✔ should initiatePenalizedFundsWithdrawal and clean up leftToWithdrawPerStaker & handle liquid tokens (61ms)
+            ✔ should fail to withdraw the banned funds if waiting withdraw period is not passed (58ms)
+            ✔ should successfully withdraw the funds (99ms)
+        Validator Manager
+          Validator counters
+            ✔ should get all validators - admin
+            ✔ should get active validators count - the admin
+            ✔ should revert when activating validator from non-HydraStaking contract
+            ✔ should revert when deactivating validator from non-HydraStaking contract
+            ✔ should revert if we try activate more than Max Active Validators (33444ms)
+            ✔ should decrement the count of active validators when a validator is banned (111ms)
+            ✔ should decrement the count of active validators when a validator unstake all his stake (113ms)
+            ✔ should decrement the count of active validators, when unstake all, even if we have delegation (383ms)
+            ✔ should not decrement the count of active validators on ban, if user already unstaked all (134ms)
+          Set Max Validators
+            ✔ should revert when setting max validators from non-govern address
+            ✔ should revert when setting max validators if we try to set less than 20 or more than 150
+            ✔ should update the max validators
+          Register
+            ✔ should be able to register only whitelisted (129ms)
+            ✔ should not be able to register with invalid signature (159ms)
+            ✔ should not be able to register with invalid commission (166ms)
+            ✔ should register (483ms)
+            ✔ should revert when attempt to register twice (1890ms)
+            ✔ should revert when trying to register active validator (342ms)
+            ✔ should revert when trying to register banned validator (126ms)
+          Power Exponent
+            ✔ should revert trying to update the Exponent if we are no-govern address
+            ✔ should revert trying to update the Exponent invalid small value
+            ✔ should revert trying to update the Exponent with invalid big value
+            ✔ should update the Exponent
+        Validators Data
+          ✔ should revert syncValidatorsData if not called by system
+          ✔ should syncValidatorsData and update validators data
+          ✔ should correctly update validators data on increase and decrease of voting power (87ms)
+          ✔ should correctly update the total voting power (45ms)
+          ✔ should get the validator power
+          ✔ should get the validator power
+          ✔ should get the total voting power
+          ✔ should emit event on syncValidatorsData
+          ✔ should return if we pass empty validators data
+    HydraStaking
+      
+        HydraStaking initializations
+          ✔ should validate default values when HydraStaking deployed
+          ✔ should have zero total supply if we pass no validators (80ms)
+          ✔ should revert when initialized without system call
+          ✔ should revert if minStake is too low
+          ✔ should initialize successfully (6857ms)
+          ✔ should revert on re-initialization attempt
+        lastDistribution
+          ✔ should update on reward distribution (2335ms)
+        Total Balance
+          ✔ should add up to Total Balance after delegation (146ms)
+          ✔ should add up to Total Balance after stake (133ms)
+          ✔ should reduce to Total Balance after undelegate (1229ms)
+          ✔ should reduce to Total Balance after unstake
+        Change minStake
+          ✔ should revert if non-Govern address try to change min stake
+          ✔ should revert if minStake is too low
+          ✔ should change min stake by Govern address
+        Claim Rewards
+          ✔ should claim validator reward (343ms)
+          ✔ should claim validator reward when having opened VestedPosition (288ms)
+        StakeSyncer
+          Stake
+            ✔ should emit Staked event on stake (135ms)
+            ✔ should emit Staked event on opening a vested position (293ms)
+            ✔ should emit Unstaked event on unstake (317ms)
+            ✔ should emit Unstaked event on unstake from vested position (406ms)
+        Table driven tests for staker rewards
+          ✔ should have less than 1% difference with staker data table rewards (9258ms)
+        Staking
+          Total Stake
+            ✔ should add up to stake variables & balance after staking (9594ms)
+            ✔ should reduce stake variables after unstake, but balance in contract stays the same (126ms)
+            ✔ balance in contract should reduce after withdraw, and it is = to total stake (in non-testing environment) (160ms)
+          Stake
+            ✔ should allow only registered or active validators to stake
+            ✔ should revert banned validator to stake again (396ms)
+            ✔ should revert if min amount not reached
+            ✔ should be able to stake (133ms)
+            ✔ should allow fully-unstaked validator to stake again (368ms)
+            ✔ should revert stake if validator is in active position (217ms)
+          Unstake
+            ✔ should not be able to unstake if there is insufficient staked balance (268ms)
+            ✔ should not be able to exploit int overflow
+            ✔ should not be able to unstake so that less than minStake is left
+            ✔ should revert with insufficient balance when trying to unstake from the delegation pool (992ms)
+            ✔ should be able to partially unstake
+            ✔ should take pending unstakes into account (61ms)
+            ✔ should be able to completely unstake (112ms)
+            ✔ should change status to Registered after active validator unstake all (115ms)
+            ✔ should place in withdrawal queue (115ms)
+        DelegatedStaking
+          ✔ should revert if we try to call OnDelegate from non-HydraDelegate contract
+          ✔ should revert if we try to call OnDelegate with non-active Validator from Delegate contract
+          ✔ should revert if we try to call OnUnDelegate from non-HydraDelegate contract
+          ✔ should emit BalanceChanged event when delegating (2399ms)
+          ✔ should emit BalanceChanged event on undelegate (980ms)
+        VestedStaking
+          
+            openVestedPosition()
+              ✔ should open vested position (776ms)
+              ✔ should open vested position with the old stake base and adjust token balance (853ms)
+              ✔ should open vested position with the old vested matured position and adjust token balance (465ms)
+              ✔ should revert open vested position with the old stake base if staker send his token balance to anyone (125ms)
+              ✔ should revert open vested position with the old vested position if staker send his token balance to anyone (283ms)
+              ✔ should not be in vesting cycle (777ms)
+              ✔ should add debt to staker when opening a vested position
+            decrease staking position with unstake()
+              ✔ should revert when penalizeStaker function is not called by HydraChain
+              ✔ should lower the debt on unstake (2389ms)
+              ✔ Should manage debt and collect tokens properly for vested staking positions (848ms)
+              ✔ should get staker penalty and rewards must return 0 (burned), if closing from active position (1330ms)
+              ✔ should decrease staking position and apply slashing penalty (270ms)
+              ✔ should slash when unstakes exactly 1 week after the start of the vesting position (175ms)
+              ✔ should delete position data when full amount removed (147ms)
+              ✔ should withdraw and validate there are no pending withdrawals (271ms)
+            Claim position reward
+              ✔ should not be able to claim when active
+              ✔ should revert claimValidatorReward(epoch) when giving wrong index (103ms)
+              ✔ should be able to claim with claimValidatorReward(epoch) when maturing (114ms)
+              ✔ should be able to claim whole reward when not in position (110ms)
+            calculatePositionTotalReward()
+              ✔ should be bigger than claimable when maturing (104ms)
+            calculatePositionClaimableReward()
+              ✔ should return zero in case active position
+              ✔ should return all rewards in case matured (100ms)
+            penaltyDecreasePerWeek()
+              ✔ should revert setting penalty decrease per week if not Governance (1585ms)
+              ✔ should revert setting penalty decrease per week if amount out of range
+              ✔ should set penalty decrease per week
+    HydraDelegation
+      
+        HydraDelegation initializations
+          ✔ should validate default values when HydraDelegation deployed
+          ✔ should revert when initialized without system call
+          ✔ should revert when initialize with invalid commission
+          ✔ should initialize successfully (6928ms)
+          ✔ should revert on re-initialization attempt
+        Set Commission
+          ✔ should revert setting initial commission if not called by HydraChain (2687ms)
+          ✔ should set initial commission on register (483ms)
+          ✔ should revert with invalid commission on pending (2638ms)
+          ✔ should set pending commission
+          ✔ should set pending commission again and reset the timer
+          ✔ should revert applying pending commission earlier than 15 days
+          ✔ should apply pending commission
+        Change minDelegate
+          ✔ should revert if non-governance address try to change MinDelegation (448ms)
+          ✔ should revert if MinDelegation is too low
+          ✔ should change MinDelegation by default_admin_role address
+        Claim rewards
+          ✔ should claim delegator reward (221ms)
+          ✔ should claim delegator reward, but no commission if 0 when on base delegation (292ms)
+          ✔ should claim delegator reward and distribute commission when on base delegation (237ms)
+          ✔ should revert when not the vest manager owner (864ms)
+          ✔ should not claim when active position (254ms)
+          ✔ should return when unused position (264ms)
+          ✔ should revert when wrong rps index is provided (137ms)
+          ✔ should properly claim reward when not fully matured (232ms)
+          ✔ should properly claim reward when position fully matured (261ms)
+          ✔ should not distribute commission to the validator on claim for vested position with 0 commission (226ms)
+          ✔ should distribute the right commission to the validator on claim for vested position (1234ms)
+        Claim commission
+          ✔ should revert when there is no commission to claim
+          ✔ should claim commission and set it to 0 (3291ms)
+          ✔ should claim commission and emit event (76ms)
+        StakeSyncer
+          Delegation
+            ✔ should emit Delegated event on delegate (153ms)
+            ✔ should distribute decreased amount of liquid tokens (1292ms)
+            ✔ should emit Delegated event on open vested position (331ms)
+            ✔ should emit Delegated & Undelegated & PositionSwapped on vested delegation position swap (851ms)
+            ✔ should emit Undelegated event on undelegate (333ms)
+            ✔ should emit Undelegated event on cut vested position (689ms)
+            ✔ should emit Undelegated event on cut vested position using permit (783ms)
+        Table driven tests for delegation rewards
+          ✔ should have less than 1% difference with delegation data table rewards (9495ms)
+        Delegation
+          Total Delegation
+            ✔ should add up to delegation variables & balance after delegation (10066ms)
+            ✔ should reduce delegation variables after undelegation, but balance in contract stays the same (170ms)
+            ✔ balance in contract should reduce after withdraw, and it is = to total delegation (204ms)
+          Delegate
+            ✔ should revert when delegating zero amount
+            ✔ should not be able to delegate less than minDelegation
+            ✔ should revert if we try to delegate to inactive validator
+            ✔ should delegate for the first time (142ms)
+            ✔ should delegate again and register a withdrawal for the claimed rewards automatically (605ms)
+          Undelegate
+            ✔ should not be able to undelegate more than the delegated amount
+            ✔ should not be able to undelegate such amount, so the left delegation is lower than minDelegation
+            ✔ should not be able to exploit int overflow
+            ✔ should partially undelegate (50ms)
+            ✔ should completely undelegate (172ms)
+          Get Delegator Reward
+            ✔ should change getDelegatorReward according to the commission (48ms)
+            ✔ should not change effect getRawReward on commission change
+        VestedDelegation
+          
+            ✔ should have created a base implementation
+            newManager()
+              ✔ should revert when zero address
+              ✔ should successfully create new manager
+              ✔ should have initialized the manager
+              ✔ should set manager in mappings
+            openVestedDelegatePosition()
+              ✔ should revert when not manager
+              ✔ should revert when not the vest manager owner
+              ✔ should revert when validator is inactive
+              ✔ should revert when delegation too low
+              ✔ should properly open vesting position (404ms)
+              ✔ should revert when maturing position (632ms)
+              ✔ should revert when active position
+              ✔ should revert when reward not claimed
+              ✔ should successfully open vesting position again (481ms)
+              ✔ should successfully open vesting position even if balance change is made before that (we delete history data) (851ms)
+              ✔ should open position, when there is no maturing reward (even if maturing period is not ended) (1672ms)
+            cutVestedDelegatePosition()
+              ✔ should revert if not vesting manager owner (713ms)
+              ✔ should revert when insufficient balance (377ms)
+              ✔ should revert when delegation too low
+              ✔ should revert if we try to cut the position in a epoch that is made balance change (334ms)
+              ✔ should get staker penalty and rewards that will be burned, if closing from active position (1237ms)
+              ✔ should slash the amount when in active position (378ms)
+              ✔ should slash when undelegates exactly 1 week after the start of the vested position (327ms)
+              ✔ should properly cut position (702ms)
+              ✔ should delete position when closing it (262ms)
+            cutVestedDelegatePositionWithPermit()
+              ✔ should revert when not the vest manager owner
+              ✔ should revert on wrong deadline (368ms)
+              ✔ should revert on wrong signature (378ms)
+              ✔ should properly cut position with permit (724ms)
+            calculatePositionClaimableReward()
+              ✔ should revert with invalid epoch (1074ms)
+              ✔ should revert with wrong rps (130ms)
+              ✔ should revert with invalid params index (1202ms)
+              ✔ should revert when get reward with late balance (932ms)
+              ✔ should revert when get reward with early balance (857ms)
+              ✔ should return 0 reward if the position is non-existing one (948ms)
+              ✔ should return 0 reward if the position is still active
+              calculatePositionClaimableReward() With Vesting
+                ✔ should get no rewards if the position is still active (809ms)
+                ✔ should generate partial rewards when enter maturing period (1084ms)
+                ✔ should have the same rewards if the position size and period are the same (1318ms)
+                ✔ should have different rewards if the position period differs (1536ms)
+                ✔ should have different rewards when the position differs (1872ms)
+                ✔ should return reward if the position is still maturing (1339ms)
+                ✔ should update additional rewards when we update the commission after position is maturing/matured (410ms)
+                ✔ should not add additional rewards when we update the commission to 100 after position is matured (1213ms)
+            calculatePositionTotalReward()
+              ✔ should calculate rewards even if the position is still active (632ms)
+              ✔ should revert when invalid epoch is sent (371ms)
+              ✔ should revert when invalid RPS is sent (443ms)
+              ✔ should revert when invalid balance change index is sent (377ms)
+              ✔ should revert when the position have future valid RPS and a person is trying to get an old reward (562ms)
+              ✔ should revert when calculate the total reward with earlier balance change index (1141ms)
+              ✔ should successfully calculate the total reward for still active position (650ms)
+              ✔ should successfully calculate the total reward for currently maturing position (842ms)
+              ✔ should not claim if position is matured but we pass old RPS data (1038ms)
+              ✔ should successfully calculate the total reward (must be equal to claimable) for matured position, and claim (1525ms)
+              ✔ should update additional rewards when we update the commission after position is maturing/matured (1570ms)
+              ✔ should not update total rewards when we update the commission to 100 after position is matured (1287ms)
+            Liquid Debt
+              ✔ should give negative liquid debt when vesting (646ms)
+              ✔ Should clear all debt and take all Lydras on cutting the whole position (790ms)
+              ✔ When cutting a position, the liquid debt should be changed properly (above), and we provide 0 Lydra (743ms)
+              ✔ When opening a big position (more than the liquid debt), another position with same manager will handle liquid debt properly (1154ms)
+            penaltyDecreasePerWeek()
+              ✔ should revert setting penalty decrease per week if not Governance
+              ✔ should revert setting penalty decrease per week if amount out of range
+              ✔ should set penalty decrease per week
+        SwapVestedPosition
+          ✔ should revert when not the vest manager owner (1052ms)
+          ✔ should revert if we try to swap to inActive validator (136ms)
+          ✔ should revert that the old position is inactive (118ms)
+          ✔ should revert when we try to swap to active position (767ms)
+          ✔ should revert when we try to swap to new position which still has reward maturing (1341ms)
+          ✔ should revert when we try to swap to a position with left balance (1359ms)
+          ✔ should revert when we try to swap to a position with left rewards to claim (1512ms)
+          ✔ should transfer old position parameters (except commission) to the new one on successful swap (918ms)
+          ✔ should start earning rewards on new position after swap (870ms)
+          ✔ should change balances of the positions after swap (830ms)
+          ✔ should stop earning rewards on old position after swap (945ms)
+          ✔ should revert when pass incorrect swap index (396ms)
+          ✔ should claim all rewards from the new position after swap (524ms)
+          ✔ should claim all rewards from the old position after swap when the reward is matured (413ms)
+          ✔ should revert when try to swap again during the same epoch
+          ✔ should swap position, when there is no maturing reward (even if maturing period is not ended) (1367ms)
+    VestingManager
+      
+        VestingManager initializations
+          ✔ should validate values when VestingManager is cloned
+          ✔ should revert on re-initialization attempt
+          ✔ should revert withdraw when not called by vesting manager owner
+        VestingManagerFactory
+          
+            VestingManagerFactory initializations
+              ✔ should validate default values when VestingManagerFactory deployed
+              ✔ should revert when initialized without system call
+              ✔ should initialize successfully (7125ms)
+              ✔ should revert on re-initialization attempt
+            VestingManagerFactory functions & variables
