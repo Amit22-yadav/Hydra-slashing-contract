@@ -115,13 +115,9 @@ describe("Slashing", function () {
     systemHydraChain = hydraChain.connect(systemSigner);
 
     // Initialize contracts in correct order
-    await liquidToken.connect(systemSigner).initialize(
-      "Hydra",
-      "HYDRA",
-      governance.address,
-      hydraStaking.address,
-      hydraDelegation.address
-    );
+    await liquidToken
+      .connect(systemSigner)
+      .initialize("Hydra", "HYDRA", governance.address, hydraStaking.address, hydraDelegation.address);
 
     // Generate initial prices array for APRCalculator (310 prices needed)
     const initialPrices = Array(310).fill(500);
@@ -155,28 +151,27 @@ describe("Slashing", function () {
       liquidToken.address
     );
 
-    await hydraStaking.connect(systemSigner).initialize(
-      [],
-      ethers.utils.parseEther("1"),
-      governance.address,
-      aprCalculator.address,
-      hydraChain.address,
-      hydraDelegation.address,
-      rewardWallet.address,
-      liquidToken.address,
-      slashing.address
-    );
+    await hydraStaking
+      .connect(systemSigner)
+      .initialize(
+        [],
+        ethers.utils.parseEther("1"),
+        governance.address,
+        aprCalculator.address,
+        hydraChain.address,
+        hydraDelegation.address,
+        rewardWallet.address,
+        liquidToken.address,
+        slashing.address
+      );
 
-    await slashing.connect(systemSigner).initialize(
-      hydraChain.address,
-      hydraStaking.address,
-      governance.address,
-      treasury.address,
-      10,
-      500
-    );
+    await slashing
+      .connect(systemSigner)
+      .initialize(hydraChain.address, hydraStaking.address, governance.address, treasury.address, 10, 500);
 
-    await rewardWallet.connect(systemSigner).initialize([hydraChain.address, hydraStaking.address, hydraDelegation.address]);
+    await rewardWallet
+      .connect(systemSigner)
+      .initialize([hydraChain.address, hydraStaking.address, hydraDelegation.address]);
 
     // Fund reward wallet using the fund() function
     await rewardWallet.connect(owner).fund({ value: ethers.utils.parseEther("5") });
@@ -250,25 +245,25 @@ describe("Slashing", function () {
       const validator1StakeBefore = await hydraStaking.stakeOf(validator1.address);
 
       // Slash validator with reporter
-      const tx = await slashing.connect(systemSigner).slashValidator(
-        validator1.address,
-        msg1Hash,
-        msg1Sig,
-        msg2Hash,
-        msg2Sig,
-        height,
-        round,
-        msgType,
-        "double-signing",
-        reporter.address
-      );
+      const tx = await slashing
+        .connect(systemSigner)
+        .slashValidator(
+          validator1.address,
+          msg1Hash,
+          msg1Sig,
+          msg2Hash,
+          msg2Sig,
+          height,
+          round,
+          msgType,
+          "double-signing",
+          reporter.address
+        );
 
       const receipt = await tx.wait();
 
       // Check WhistleblowerRewarded event
-      const whistleblowerEvent = receipt.events?.find(
-        (e: any) => e.event === "WhistleblowerRewarded"
-      );
+      const whistleblowerEvent = receipt.events?.find((e: any) => e.event === "WhistleblowerRewarded");
       expect(whistleblowerEvent).to.not.be.undefined;
 
       const rewardAmount = whistleblowerEvent!.args!.reward;
@@ -296,10 +291,7 @@ describe("Slashing", function () {
       const round = 0;
       const msgType = 1;
 
-      const msg1Data = ethers.utils.defaultAbiCoder.encode(
-        ["uint8", "uint64", "uint64"],
-        [msgType, height, round]
-      );
+      const msg1Data = ethers.utils.defaultAbiCoder.encode(["uint8", "uint64", "uint64"], [msgType, height, round]);
       const msg2Data = ethers.utils.defaultAbiCoder.encode(
         ["uint8", "uint64", "uint64", "bytes32"],
         [msgType, height, round, ethers.utils.keccak256("0x5678")]
@@ -312,25 +304,25 @@ describe("Slashing", function () {
       const msg2Sig = await signRawHash(validator1Wallet, msg2Data);
 
       // Slash without reporter (zero address)
-      const tx = await slashing.connect(systemSigner).slashValidator(
-        validator1.address,
-        msg1Hash,
-        msg1Sig,
-        msg2Hash,
-        msg2Sig,
-        height,
-        round,
-        msgType,
-        "double-signing",
-        ethers.constants.AddressZero
-      );
+      const tx = await slashing
+        .connect(systemSigner)
+        .slashValidator(
+          validator1.address,
+          msg1Hash,
+          msg1Sig,
+          msg2Hash,
+          msg2Sig,
+          height,
+          round,
+          msgType,
+          "double-signing",
+          ethers.constants.AddressZero
+        );
 
       const receipt = await tx.wait();
 
       // Check that no WhistleblowerRewarded event was emitted
-      const whistleblowerEvent = receipt.events?.find(
-        (e: any) => e.event === "WhistleblowerRewarded"
-      );
+      const whistleblowerEvent = receipt.events?.find((e: any) => e.event === "WhistleblowerRewarded");
       expect(whistleblowerEvent).to.be.undefined;
 
       // All funds should be locked (no reward distributed)
@@ -347,10 +339,7 @@ describe("Slashing", function () {
       const round = 0;
       const msgType = 1;
 
-      const msg1Data = ethers.utils.defaultAbiCoder.encode(
-        ["uint8", "uint64", "uint64"],
-        [msgType, height, round]
-      );
+      const msg1Data = ethers.utils.defaultAbiCoder.encode(["uint8", "uint64", "uint64"], [msgType, height, round]);
       const msg2Data = ethers.utils.defaultAbiCoder.encode(
         ["uint8", "uint64", "uint64", "bytes32"],
         [msgType, height, round, ethers.utils.keccak256("0xabcd")]
@@ -365,18 +354,20 @@ describe("Slashing", function () {
       const validator1StakeBefore = await hydraStaking.stakeOf(validator1.address);
 
       // Slash with reporter
-      await slashing.connect(systemSigner).slashValidator(
-        validator1.address,
-        msg1Hash,
-        msg1Sig,
-        msg2Hash,
-        msg2Sig,
-        height,
-        round,
-        msgType,
-        "double-signing",
-        reporter.address
-      );
+      await slashing
+        .connect(systemSigner)
+        .slashValidator(
+          validator1.address,
+          msg1Hash,
+          msg1Sig,
+          msg2Hash,
+          msg2Sig,
+          height,
+          round,
+          msgType,
+          "double-signing",
+          reporter.address
+        );
 
       const lockedFunds = await slashing.lockedFunds(validator1.address);
 
@@ -395,10 +386,7 @@ describe("Slashing", function () {
       const round = 0;
       const msgType = 1;
 
-      const msg1Data = ethers.utils.defaultAbiCoder.encode(
-        ["uint8", "uint64", "uint64"],
-        [msgType, height, round]
-      );
+      const msg1Data = ethers.utils.defaultAbiCoder.encode(["uint8", "uint64", "uint64"], [msgType, height, round]);
       const msg2Data = ethers.utils.defaultAbiCoder.encode(
         ["uint8", "uint64", "uint64", "bytes32"],
         [msgType, height, round, ethers.utils.keccak256("0x9999")]
@@ -410,30 +398,34 @@ describe("Slashing", function () {
       const msg1Sig = await signRawHash(validator1Wallet, msg1Data);
       const msg2Sig = await signRawHash(validator1Wallet, msg2Data);
 
-      await slashing.connect(systemSigner).slashValidator(
-        validator1.address,
-        msg1Hash,
-        msg1Sig,
-        msg2Hash,
-        msg2Sig,
-        height,
-        round,
-        msgType,
-        "double-signing",
-        reporter.address
-      );
+      await slashing
+        .connect(systemSigner)
+        .slashValidator(
+          validator1.address,
+          msg1Hash,
+          msg1Sig,
+          msg2Hash,
+          msg2Sig,
+          height,
+          round,
+          msgType,
+          "double-signing",
+          reporter.address
+        );
     });
 
     it("should not allow burning funds before lock period ends", async function () {
-      await expect(
-        slashing.connect(governance).burnLockedFunds(validator1.address)
-      ).to.be.revertedWithCustomError(slashing, "FundsStillLocked");
+      await expect(slashing.connect(governance).burnLockedFunds(validator1.address)).to.be.revertedWithCustomError(
+        slashing,
+        "FundsStillLocked"
+      );
     });
 
     it("should not allow sending to treasury before lock period ends", async function () {
-      await expect(
-        slashing.connect(governance).sendToTreasury(validator1.address)
-      ).to.be.revertedWithCustomError(slashing, "FundsStillLocked");
+      await expect(slashing.connect(governance).sendToTreasury(validator1.address)).to.be.revertedWithCustomError(
+        slashing,
+        "FundsStillLocked"
+      );
     });
 
     it("should successfully burn locked funds after lock period", async function () {
@@ -495,9 +487,10 @@ describe("Slashing", function () {
       await slashing.connect(governance).burnLockedFunds(validator1.address);
 
       // Try to burn again
-      await expect(
-        slashing.connect(governance).burnLockedFunds(validator1.address)
-      ).to.be.revertedWithCustomError(slashing, "AlreadyWithdrawn");
+      await expect(slashing.connect(governance).burnLockedFunds(validator1.address)).to.be.revertedWithCustomError(
+        slashing,
+        "AlreadyWithdrawn"
+      );
     });
 
     it("should handle batch burn correctly", async function () {
@@ -510,10 +503,7 @@ describe("Slashing", function () {
         const round = 0;
         const msgType = 1;
 
-        const msg1Data = ethers.utils.defaultAbiCoder.encode(
-          ["uint8", "uint64", "uint64"],
-          [msgType, height, round]
-        );
+        const msg1Data = ethers.utils.defaultAbiCoder.encode(["uint8", "uint64", "uint64"], [msgType, height, round]);
         const msg2Data = ethers.utils.defaultAbiCoder.encode(
           ["uint8", "uint64", "uint64", "bytes32"],
           [msgType, height, round, ethers.utils.keccak256(ethers.utils.randomBytes(32))]
@@ -525,29 +515,29 @@ describe("Slashing", function () {
         const msg1Sig = await signRawHash(wallet, msg1Data);
         const msg2Sig = await signRawHash(wallet, msg2Data);
 
-        await slashing.connect(systemSigner).slashValidator(
-          (validator as any).address,
-          msg1Hash,
-          msg1Sig,
-          msg2Hash,
-          msg2Sig,
-          height,
-          round,
-          msgType,
-          "double-signing",
-          reporter.address
-        );
+        await slashing
+          .connect(systemSigner)
+          .slashValidator(
+            (validator as any).address,
+            msg1Hash,
+            msg1Sig,
+            msg2Hash,
+            msg2Sig,
+            height,
+            round,
+            msgType,
+            "double-signing",
+            reporter.address
+          );
       }
 
       // Fast forward 30 days
       await time.increase(LOCK_PERIOD + 1);
 
       // Batch burn all three validators
-      const tx = await slashing.connect(governance).batchBurnLockedFunds([
-        validator1.address,
-        validator2.address,
-        validator3.address,
-      ]);
+      const tx = await slashing
+        .connect(governance)
+        .batchBurnLockedFunds([validator1.address, validator2.address, validator3.address]);
 
       const receipt = await tx.wait();
 
@@ -568,10 +558,7 @@ describe("Slashing", function () {
       const round = 0;
       const msgType = 1;
 
-      const msg1Data = ethers.utils.defaultAbiCoder.encode(
-        ["uint8", "uint64", "uint64"],
-        [msgType, height, round]
-      );
+      const msg1Data = ethers.utils.defaultAbiCoder.encode(["uint8", "uint64", "uint64"], [msgType, height, round]);
       const msg2Data = ethers.utils.defaultAbiCoder.encode(
         ["uint8", "uint64", "uint64", "bytes32"],
         [msgType, height, round, ethers.utils.keccak256("0xeeee")]
@@ -583,18 +570,20 @@ describe("Slashing", function () {
       const msg1Sig = await signRawHash(validator2Wallet, msg1Data);
       const msg2Sig = await signRawHash(validator2Wallet, msg2Data);
 
-      await slashing.connect(systemSigner).slashValidator(
-        validator2.address,
-        msg1Hash,
-        msg1Sig,
-        msg2Hash,
-        msg2Sig,
-        height,
-        round,
-        msgType,
-        "double-signing",
-        reporter.address
-      );
+      await slashing
+        .connect(systemSigner)
+        .slashValidator(
+          validator2.address,
+          msg1Hash,
+          msg1Sig,
+          msg2Hash,
+          msg2Sig,
+          height,
+          round,
+          msgType,
+          "double-signing",
+          reporter.address
+        );
 
       // Fast forward 30 days
       await time.increase(LOCK_PERIOD + 1);
@@ -602,10 +591,7 @@ describe("Slashing", function () {
       const treasuryBalanceBefore = await ethers.provider.getBalance(treasury.address);
 
       // Batch send to treasury
-      await slashing.connect(governance).batchSendToTreasury([
-        validator1.address,
-        validator2.address,
-      ]);
+      await slashing.connect(governance).batchSendToTreasury([validator1.address, validator2.address]);
 
       const treasuryBalanceAfter = await ethers.provider.getBalance(treasury.address);
       const totalSent = treasuryBalanceAfter.sub(treasuryBalanceBefore);
@@ -617,13 +603,15 @@ describe("Slashing", function () {
     it("should only allow governance to manage funds", async function () {
       await time.increase(LOCK_PERIOD + 1);
 
-      await expect(
-        slashing.connect(owner).burnLockedFunds(validator1.address)
-      ).to.be.revertedWithCustomError(slashing, "OnlyGovernance");
+      await expect(slashing.connect(owner).burnLockedFunds(validator1.address)).to.be.revertedWithCustomError(
+        slashing,
+        "OnlyGovernance"
+      );
 
-      await expect(
-        slashing.connect(owner).sendToTreasury(validator1.address)
-      ).to.be.revertedWithCustomError(slashing, "OnlyGovernance");
+      await expect(slashing.connect(owner).sendToTreasury(validator1.address)).to.be.revertedWithCustomError(
+        slashing,
+        "OnlyGovernance"
+      );
     });
   });
 
@@ -643,10 +631,7 @@ describe("Slashing", function () {
         const round = 0;
         const msgType = 1;
 
-        const msg1Data = ethers.utils.defaultAbiCoder.encode(
-          ["uint8", "uint64", "uint64"],
-          [msgType, height, round]
-        );
+        const msg1Data = ethers.utils.defaultAbiCoder.encode(["uint8", "uint64", "uint64"], [msgType, height, round]);
         const msg2Data = ethers.utils.defaultAbiCoder.encode(
           ["uint8", "uint64", "uint64", "bytes32"],
           [msgType, height, round, ethers.utils.keccak256(ethers.utils.randomBytes(32))]
@@ -665,54 +650,60 @@ describe("Slashing", function () {
       // So we'll verify the per-block counter works correctly
 
       // Slash first validator
-      const tx1 = await slashing.connect(systemSigner).slashValidator(
-        slashingData[0].validator,
-        slashingData[0].msg1Hash,
-        slashingData[0].msg1Sig,
-        slashingData[0].msg2Hash,
-        slashingData[0].msg2Sig,
-        100,
-        0,
-        1,
-        "double-signing",
-        reporter.address
-      );
+      const tx1 = await slashing
+        .connect(systemSigner)
+        .slashValidator(
+          slashingData[0].validator,
+          slashingData[0].msg1Hash,
+          slashingData[0].msg1Sig,
+          slashingData[0].msg2Hash,
+          slashingData[0].msg2Sig,
+          100,
+          0,
+          1,
+          "double-signing",
+          reporter.address
+        );
       const receipt1 = await tx1.wait();
 
       // Verify first block has 1 slashing
       expect(await slashing.slashingsInBlock(receipt1.blockNumber)).to.equal(1);
 
       // Slash second validator
-      const tx2 = await slashing.connect(systemSigner).slashValidator(
-        slashingData[1].validator,
-        slashingData[1].msg1Hash,
-        slashingData[1].msg1Sig,
-        slashingData[1].msg2Hash,
-        slashingData[1].msg2Sig,
-        100,
-        0,
-        1,
-        "double-signing",
-        reporter.address
-      );
+      const tx2 = await slashing
+        .connect(systemSigner)
+        .slashValidator(
+          slashingData[1].validator,
+          slashingData[1].msg1Hash,
+          slashingData[1].msg1Sig,
+          slashingData[1].msg2Hash,
+          slashingData[1].msg2Sig,
+          100,
+          0,
+          1,
+          "double-signing",
+          reporter.address
+        );
       const receipt2 = await tx2.wait();
 
       // Verify second block also has 1 slashing (different block)
       expect(await slashing.slashingsInBlock(receipt2.blockNumber)).to.equal(1);
 
       // Slash third validator
-      const tx3 = await slashing.connect(systemSigner).slashValidator(
-        slashingData[2].validator,
-        slashingData[2].msg1Hash,
-        slashingData[2].msg1Sig,
-        slashingData[2].msg2Hash,
-        slashingData[2].msg2Sig,
-        100,
-        0,
-        1,
-        "double-signing",
-        reporter.address
-      );
+      const tx3 = await slashing
+        .connect(systemSigner)
+        .slashValidator(
+          slashingData[2].validator,
+          slashingData[2].msg1Hash,
+          slashingData[2].msg1Sig,
+          slashingData[2].msg2Hash,
+          slashingData[2].msg2Sig,
+          100,
+          0,
+          1,
+          "double-signing",
+          reporter.address
+        );
       const receipt3 = await tx3.wait();
 
       // Verify third block has 1 slashing
@@ -731,54 +722,52 @@ describe("Slashing", function () {
       const round = 0;
       const msgType = 1;
 
-      const msg1Data = ethers.utils.defaultAbiCoder.encode(
-        ["uint8", "uint64", "uint64"],
-        [msgType, height, round]
-      );
+      const msg1Data = ethers.utils.defaultAbiCoder.encode(["uint8", "uint64", "uint64"], [msgType, height, round]);
       const msg2Data = ethers.utils.defaultAbiCoder.encode(
         ["uint8", "uint64", "uint64", "bytes32"],
         [msgType, height, round, ethers.utils.keccak256("0xaaaa")]
       );
 
-      await slashing.connect(systemSigner).slashValidator(
-        validator1.address,
-        ethers.utils.keccak256(msg1Data),
-        await signRawHash(validator1Wallet, msg1Data),
-        ethers.utils.keccak256(msg2Data),
-        await signRawHash(validator1Wallet, msg2Data),
-        height,
-        round,
-        msgType,
-        "double-signing",
-        reporter.address
-      );
+      await slashing
+        .connect(systemSigner)
+        .slashValidator(
+          validator1.address,
+          ethers.utils.keccak256(msg1Data),
+          await signRawHash(validator1Wallet, msg1Data),
+          ethers.utils.keccak256(msg2Data),
+          await signRawHash(validator1Wallet, msg2Data),
+          height,
+          round,
+          msgType,
+          "double-signing",
+          reporter.address
+        );
 
       // Mine a new block
       await ethers.provider.send("evm_mine", []);
 
       // Slash validator2 in block N+1 - should succeed
-      const msg1Data2 = ethers.utils.defaultAbiCoder.encode(
-        ["uint8", "uint64", "uint64"],
-        [msgType, height, round]
-      );
+      const msg1Data2 = ethers.utils.defaultAbiCoder.encode(["uint8", "uint64", "uint64"], [msgType, height, round]);
       const msg2Data2 = ethers.utils.defaultAbiCoder.encode(
         ["uint8", "uint64", "uint64", "bytes32"],
         [msgType, height, round, ethers.utils.keccak256("0xbbbb")]
       );
 
       await expect(
-        slashing.connect(systemSigner).slashValidator(
-          validator2.address,
-          ethers.utils.keccak256(msg1Data2),
-          await signRawHash(validator2Wallet, msg1Data2),
-          ethers.utils.keccak256(msg2Data2),
-          await signRawHash(validator2Wallet, msg2Data2),
-          height,
-          round,
-          msgType,
-          "double-signing",
-          reporter.address
-        )
+        slashing
+          .connect(systemSigner)
+          .slashValidator(
+            validator2.address,
+            ethers.utils.keccak256(msg1Data2),
+            await signRawHash(validator2Wallet, msg1Data2),
+            ethers.utils.keccak256(msg2Data2),
+            await signRawHash(validator2Wallet, msg2Data2),
+            height,
+            round,
+            msgType,
+            "double-signing",
+            reporter.address
+          )
       ).to.not.be.reverted;
     });
   });
@@ -811,10 +800,7 @@ describe("Slashing", function () {
       const round = 0;
       const msgType = 1;
 
-      const msg1Data = ethers.utils.defaultAbiCoder.encode(
-        ["uint8", "uint64", "uint64"],
-        [msgType, height, round]
-      );
+      const msg1Data = ethers.utils.defaultAbiCoder.encode(["uint8", "uint64", "uint64"], [msgType, height, round]);
       const msg2Data = ethers.utils.defaultAbiCoder.encode(
         ["uint8", "uint64", "uint64", "bytes32"],
         [msgType, height, round, ethers.utils.keccak256("0xcccc")]
@@ -828,18 +814,20 @@ describe("Slashing", function () {
 
       // Slashing should revert with ValidatorNotActive error (validator becomes inactive after withdrawal)
       await expect(
-        slashing.connect(systemSigner).slashValidator(
-          testValidator.address,
-          msg1Hash,
-          msg1Sig,
-          msg2Hash,
-          msg2Sig,
-          height,
-          round,
-          msgType,
-          "double-signing",
-          reporter.address
-        )
+        slashing
+          .connect(systemSigner)
+          .slashValidator(
+            testValidator.address,
+            msg1Hash,
+            msg1Sig,
+            msg2Hash,
+            msg2Sig,
+            height,
+            round,
+            msgType,
+            "double-signing",
+            reporter.address
+          )
       ).to.be.revertedWithCustomError(hydraChain, "ValidatorNotActive");
     });
 
@@ -848,10 +836,7 @@ describe("Slashing", function () {
       const round = 0;
       const msgType = 1;
 
-      const msg1Data = ethers.utils.defaultAbiCoder.encode(
-        ["uint8", "uint64", "uint64"],
-        [msgType, height, round]
-      );
+      const msg1Data = ethers.utils.defaultAbiCoder.encode(["uint8", "uint64", "uint64"], [msgType, height, round]);
       const msg2Data = ethers.utils.defaultAbiCoder.encode(
         ["uint8", "uint64", "uint64", "bytes32"],
         [msgType, height, round, ethers.utils.keccak256("0xdddd")]
@@ -863,24 +848,24 @@ describe("Slashing", function () {
       const msg1Sig = await signRawHash(validator1Wallet, msg1Data);
       const msg2Sig = await signRawHash(validator1Wallet, msg2Data);
 
-      await slashing.connect(systemSigner).slashValidator(
-        validator1.address,
-        msg1Hash,
-        msg1Sig,
-        msg2Hash,
-        msg2Sig,
-        height,
-        round,
-        msgType,
-        "double-signing",
-        reporter.address
-      );
+      await slashing
+        .connect(systemSigner)
+        .slashValidator(
+          validator1.address,
+          msg1Hash,
+          msg1Sig,
+          msg2Hash,
+          msg2Sig,
+          height,
+          round,
+          msgType,
+          "double-signing",
+          reporter.address
+        );
 
       // Verify evidence hash
       const storedHash = await slashing.getEvidenceHash(validator1.address);
-      const expectedHash = ethers.utils.keccak256(
-        ethers.utils.concat([msg1Hash, msg2Hash])
-      );
+      const expectedHash = ethers.utils.keccak256(ethers.utils.concat([msg1Hash, msg2Hash]));
 
       expect(storedHash).to.equal(expectedHash);
     });
@@ -901,14 +886,13 @@ describe("Slashing", function () {
       expect(await slashing.governance()).to.equal(newGovernance.address);
 
       // Old governance should no longer work
-      await expect(
-        slashing.connect(governance).setMaxSlashingsPerBlock(10)
-      ).to.be.revertedWithCustomError(slashing, "OnlyGovernance");
+      await expect(slashing.connect(governance).setMaxSlashingsPerBlock(10)).to.be.revertedWithCustomError(
+        slashing,
+        "OnlyGovernance"
+      );
 
       // New governance should work
-      await expect(
-        slashing.connect(newGovernance).setMaxSlashingsPerBlock(10)
-      ).to.not.be.reverted;
+      await expect(slashing.connect(newGovernance).setMaxSlashingsPerBlock(10)).to.not.be.reverted;
     });
 
     it("should handle treasury address update", async function () {
@@ -926,27 +910,26 @@ describe("Slashing", function () {
       const round = 0;
       const msgType = 1;
 
-      const msg1Data = ethers.utils.defaultAbiCoder.encode(
-        ["uint8", "uint64", "uint64"],
-        [msgType, height, round]
-      );
+      const msg1Data = ethers.utils.defaultAbiCoder.encode(["uint8", "uint64", "uint64"], [msgType, height, round]);
       const msg2Data = ethers.utils.defaultAbiCoder.encode(
         ["uint8", "uint64", "uint64", "bytes32"],
         [msgType, height, round, ethers.utils.keccak256("0xffff")]
       );
 
-      await slashing.connect(systemSigner).slashValidator(
-        validator1.address,
-        ethers.utils.keccak256(msg1Data),
-        await signRawHash(validator1Wallet, msg1Data),
-        ethers.utils.keccak256(msg2Data),
-        await signRawHash(validator1Wallet, msg2Data),
-        height,
-        round,
-        msgType,
-        "double-signing",
-        reporter.address
-      );
+      await slashing
+        .connect(systemSigner)
+        .slashValidator(
+          validator1.address,
+          ethers.utils.keccak256(msg1Data),
+          await signRawHash(validator1Wallet, msg1Data),
+          ethers.utils.keccak256(msg2Data),
+          await signRawHash(validator1Wallet, msg2Data),
+          height,
+          round,
+          msgType,
+          "double-signing",
+          reporter.address
+        );
 
       // Check initial remaining time
       let remainingTime = await slashing.getRemainingLockTime(validator1.address);
@@ -973,27 +956,26 @@ describe("Slashing", function () {
       const round = 0;
       const msgType = 1;
 
-      const msg1Data = ethers.utils.defaultAbiCoder.encode(
-        ["uint8", "uint64", "uint64"],
-        [msgType, height, round]
-      );
+      const msg1Data = ethers.utils.defaultAbiCoder.encode(["uint8", "uint64", "uint64"], [msgType, height, round]);
       const msg2Data = ethers.utils.defaultAbiCoder.encode(
         ["uint8", "uint64", "uint64", "bytes32"],
         [msgType, height, round, ethers.utils.keccak256("0x1111")]
       );
 
-      await slashing.connect(systemSigner).slashValidator(
-        validator1.address,
-        ethers.utils.keccak256(msg1Data),
-        await signRawHash(validator1Wallet, msg1Data),
-        ethers.utils.keccak256(msg2Data),
-        await signRawHash(validator1Wallet, msg2Data),
-        height,
-        round,
-        msgType,
-        "double-signing",
-        reporter.address
-      );
+      await slashing
+        .connect(systemSigner)
+        .slashValidator(
+          validator1.address,
+          ethers.utils.keccak256(msg1Data),
+          await signRawHash(validator1Wallet, msg1Data),
+          ethers.utils.keccak256(msg2Data),
+          await signRawHash(validator1Wallet, msg2Data),
+          height,
+          round,
+          msgType,
+          "double-signing",
+          reporter.address
+        );
     });
 
     it("should correctly return hasBeenSlashed", async function () {

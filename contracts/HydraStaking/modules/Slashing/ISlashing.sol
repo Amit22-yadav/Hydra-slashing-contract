@@ -3,12 +3,12 @@ pragma solidity ^0.8.17;
 
 // IBFT consensus message structure for double-signing evidence
 struct IBFTMessage {
-    uint8 msgType;      // Type of IBFT message (PREPREPARE, PREPARE, COMMIT, ROUND_CHANGE)
-    uint64 height;      // Block height
-    uint64 round;       // Consensus round
-    address from;       // Sender address
-    bytes signature;    // BLS signature
-    bytes data;         // Message payload
+    uint8 msgType; // Type of IBFT message (PREPREPARE, PREPARE, COMMIT, ROUND_CHANGE)
+    uint64 height; // Block height
+    uint64 round; // Consensus round
+    address from; // Sender address
+    bytes signature; // BLS signature
+    bytes data; // Message payload
 }
 
 interface ISlashing {

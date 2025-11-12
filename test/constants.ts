@@ -30,12 +30,12 @@ export const SLOW_SMA = 310;
 export const ARRAY_310_ELEMENTS: number[] = Array(310).fill(INITIAL_PRICE);
 export const BAN_THRESHOLD = 60 * 60 * 24; // 24 hours
 /* eslint-disable no-unused-vars */
-export enum VALIDATOR_STATUS {
-  None = 0,
-  Registered = 1,
-  Active = 2,
-  Banned = 3,
-}
+export const VALIDATOR_STATUS = {
+  None: 0,
+  Registered: 1,
+  Active: 2,
+  Banned: 3,
+} as const;
 
 /// @notice This bytecode is used to mock and return true with any input
 export const ALWAYS_TRUE_BYTECODE = "0x600160005260206000F3";

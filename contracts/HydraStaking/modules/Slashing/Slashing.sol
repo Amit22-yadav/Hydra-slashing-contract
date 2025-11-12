@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-import {ISlashing, IBFTMessage} from "./ISlashing.sol";
+import {ISlashing} from "./ISlashing.sol";
 import {System} from "../../../common/System/System.sol";
 import {IInspector} from "../../../HydraChain/modules/Inspector/IInspector.sol";
 import {IHydraStaking} from "../../IHydraStaking.sol";
@@ -54,9 +54,9 @@ contract Slashing is ISlashing, System {
 
     /// @notice Tracks locked funds per validator
     struct LockedFunds {
-        uint256 amount;          // Amount of slashed stake locked
-        uint256 lockTimestamp;   // When the funds were locked
-        bool withdrawn;          // Whether funds have been withdrawn
+        uint256 amount; // Amount of slashed stake locked
+        uint256 lockTimestamp; // When the funds were locked
+        bool withdrawn; // Whether funds have been withdrawn
     }
 
     /// @notice Mapping of validator address to their locked slashed funds
@@ -225,14 +225,32 @@ contract Slashing is ISlashing, System {
         if (msg1Hash == msg2Hash) revert EvidenceMismatch("identical data hashes");
         if (slashingsInBlock[block.number] >= maxSlashingsPerBlock) revert MaxSlashingsExceeded();
 
+        // Verify signatures and execute slashing
+        _verifyAndSlash(validator, msg1Hash, msg1Sig, msg2Hash, msg2Sig, height, round, msgType, reason, reporter);
+    }
+
+    /**
+     * @notice Internal function to verify signatures and execute slashing
+     * @dev Split from slashValidator to avoid stack too deep errors
+     */
+    function _verifyAndSlash(
+        address validator,
+        bytes32 msg1Hash,
+        bytes memory msg1Sig,
+        bytes32 msg2Hash,
+        bytes memory msg2Sig,
+        uint64 height,
+        uint64 round,
+        uint8 msgType,
+        string calldata reason,
+        address reporter
+    ) private {
         // Verify ECDSA signatures using pre-computed hashes
-        address recovered1 = _recoverSigner(msg1Hash, msg1Sig);
-        if (recovered1 != validator) {
+        if (_recoverSigner(msg1Hash, msg1Sig) != validator) {
             revert InvalidSignature("msg1 signature does not match validator");
         }
 
-        address recovered2 = _recoverSigner(msg2Hash, msg2Sig);
-        if (recovered2 != validator) {
+        if (_recoverSigner(msg2Hash, msg2Sig) != validator) {
             revert InvalidSignature("msg2 signature does not match validator");
         }
 
@@ -284,12 +302,7 @@ contract Slashing is ISlashing, System {
 
         // Call HydraStaking to remove stake from active balance and distribute whistleblower reward
         // HydraStaking will send the whistleblowerReward to the reporter directly
-        IHydraStaking(hydraStakingContract).lockStakeForSlashing(
-            validator,
-            amount,
-            whistleblowerReward,
-            reporter
-        );
+        IHydraStaking(hydraStakingContract).lockStakeForSlashing(validator, amount, whistleblowerReward, reporter);
 
         // Record the locked amount (funds stay in HydraStaking contract)
         // Only lock the remaining amount after whistleblower reward
@@ -351,9 +364,11 @@ contract Slashing is ISlashing, System {
         for (uint256 i = 0; i < validators.length; i++) {
             address validator = validators[i];
 
-            if (lockedFunds[validator].withdrawn ||
+            if (
+                lockedFunds[validator].withdrawn ||
                 lockedFunds[validator].amount == 0 ||
-                block.timestamp < lockedFunds[validator].lockTimestamp + LOCK_PERIOD) {
+                block.timestamp < lockedFunds[validator].lockTimestamp + LOCK_PERIOD
+            ) {
                 continue;
             }
 
@@ -380,9 +395,11 @@ contract Slashing is ISlashing, System {
         for (uint256 i = 0; i < validators.length; i++) {
             address validator = validators[i];
 
-            if (lockedFunds[validator].withdrawn ||
+            if (
+                lockedFunds[validator].withdrawn ||
                 lockedFunds[validator].amount == 0 ||
-                block.timestamp < lockedFunds[validator].lockTimestamp + LOCK_PERIOD) {
+                block.timestamp < lockedFunds[validator].lockTimestamp + LOCK_PERIOD
+            ) {
                 continue;
             }
 

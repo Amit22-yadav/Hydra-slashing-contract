@@ -17,9 +17,9 @@ export function RunWithdrawalTests(): void {
       const balance = await hre.ethers.provider.getBalance(hydraStaking.address);
       expect(balance, "hydraStaking balance").to.equal(0);
 
-      await expect(
-        hydraStaking.connect(unstakedValidator).withdraw(unstakedValidator.address)
-      ).to.be.revertedWith("Withdrawal would use locked slashed funds");
+      await expect(hydraStaking.connect(unstakedValidator).withdraw(unstakedValidator.address)).to.be.revertedWith(
+        "Withdrawal would use locked slashed funds"
+      );
     });
 
     it("should fail the withdrawal before withdraw time passes", async function () {
