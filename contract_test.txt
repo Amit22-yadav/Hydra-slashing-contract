@@ -524,3 +524,53 @@
               ✔ should initialize successfully (7125ms)
               ✔ should revert on re-initialization attempt
             VestingManagerFactory functions & variables
+              ✔ should check that mappings properly save data for vesting managers (3338ms)
+              ✔ should return false when checking if an address is not a vesting manager
+              ✔ should return true when checking if an address is a vesting manager
+              ✔ should return empty array if user do not have any managers
+              ✔ should return the vesting managers for a user (3379ms)
+            Creating New Manager
+              ✔ should revert when trying to create a new vesting manager with address(0)
+              ✔ should create a new vesting manager
+              ✔ should emit NewVestingManager event (3336ms)
+    PriceOracle
+      Initialization
+        ✔ should validate default values when PriceOracle is deployed
+        ✔ should revert when initialize without system call
+        ✔ should initialize successfully (6990ms)
+        ✔ should revert re-initializing attempt
+      Voting for price
+        ✔ should revert vote with 0 price (2382ms)
+        ✔ should revert vote with price bigger than max uint224
+        ✔ should revert when not in voting time
+        ✔ should revert when vote with non-active validator
+        ✔ should vote successfully (2586ms)
+        ✔ should revert vote when price for the day is updated (87ms)
+        ✔ should revert double voting in the same day
+      Price update
+        ✔ should not update price if votes are less than 3 active validators vote for price, even if others have enough power (115ms)
+        ✔ should not update price if not enough power is reached (84ms)
+        ✔ should not update price if validators vote for different prices (98ms)
+        ✔ should not update price, if there is is not enough power for a price (rounding to 1%) (93ms)
+        ✔ should update price successfully (83ms)
+        ✔ should update price if 61% power agrees on price (rounding to 1%), even if other validators voted for different price (106ms)
+        ✔ should update the average price of votes (if they are all around the same value to 1% one after another) (172ms)
+        ✔ should not revert vote if APRCalculator priceUpdate fails, it does not update the price & emit event for fail (61ms)
+      Price Many voters
+        - should vote with many validators
+    RewardWallet
+      Initialization
+        ✔ should validate default values when RewardWallet is deployed - no balance and managers
+        ✔ should revert when initialize without system call
+        ✔ should initialize successfully
+        ✔ should revert on re-initialization attempt (7023ms)
+        ✔ should successfully send some HYDRA using the fund function (2436ms)
+      Distribute reward
+        ✔ should revert when distributing with non-manager
+        ✔ should revert when distribution is failing (262ms)
+        ✔ should successfully distribute reward (881ms)
+
+
+  443 passing (6m)
+  1 pending
+
