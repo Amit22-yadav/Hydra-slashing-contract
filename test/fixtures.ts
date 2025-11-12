@@ -152,7 +152,14 @@ async function presetHydraChainStateFixtureFunction(this: Mocha.Context) {
     params: [SYSTEM],
   });
   const systemSigner = await hre.ethers.getSigner(SYSTEM);
-  await slashing.connect(systemSigner).initialize(hydraStaking.address);
+  await slashing.connect(systemSigner).initialize(
+    hydraChain.address,
+    hydraStaking.address,
+    this.signers.governance.address,
+    this.signers.admin.address, // treasury address
+    10, // maxSlashingsPerBlock
+    500 // whistleblowerRewardPercentage (5%)
+  );
 
   return {
     hydraChain,
@@ -190,7 +197,14 @@ async function initializedHydraChainStateFixtureFunction(this: Mocha.Context) {
   // Deploy and initialize Slashing contract
   const slashing = await new Slashing__factory(this.signers.admin).deploy();
   await slashing.deployed();
-  await slashing.connect(this.signers.system).initialize(hydraStaking.address);
+  await slashing.connect(this.signers.system).initialize(
+    hydraChain.address,
+    hydraStaking.address,
+    this.signers.governance.address,
+    this.signers.admin.address, // treasury address
+    10, // maxSlashingsPerBlock
+    500 // whistleblowerRewardPercentage (5%)
+  );
 
   await mcl.init();
   const validatorBls = generateValidatorBls(this.signers.admin);
@@ -308,7 +322,14 @@ async function initializedWithSpecificBonusesStateFixtureFunction(this: Mocha.Co
   // Deploy and initialize Slashing contract
   const slashing = await new Slashing__factory(this.signers.admin).deploy();
   await slashing.deployed();
-  await slashing.connect(this.signers.system).initialize(hydraStaking.address);
+  await slashing.connect(this.signers.system).initialize(
+    hydraChain.address,
+    hydraStaking.address,
+    this.signers.governance.address,
+    this.signers.admin.address, // treasury address
+    10, // maxSlashingsPerBlock
+    500 // whistleblowerRewardPercentage (5%)
+  );
 
   await mcl.init();
   const validatorBls = generateValidatorBls(this.signers.admin);
