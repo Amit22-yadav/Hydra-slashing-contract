@@ -321,13 +321,16 @@ contract Slashing is ISlashing, System {
         if (reporter != address(0) && whistleblowerRewardPercentage > 0) {
             whistleblowerReward = (amount * whistleblowerRewardPercentage) / 10000;
             amountToLock = amount - whistleblowerReward;
-
-            emit WhistleblowerRewarded(reporter, validator, whistleblowerReward);
         }
 
         // Call HydraStaking to remove stake from active balance and distribute whistleblower reward
         // HydraStaking will send the whistleblowerReward to the reporter directly
         IHydraStaking(hydraStakingContract).lockStakeForSlashing(validator, amount, whistleblowerReward, reporter);
+
+        // Emit event only if a reward was actually distributed
+        if (whistleblowerReward > 0) {
+            emit WhistleblowerRewarded(reporter, validator, whistleblowerReward);
+        }
 
         // Record the locked amount (funds stay in HydraStaking contract)
         // Only lock the remaining amount after whistleblower reward
