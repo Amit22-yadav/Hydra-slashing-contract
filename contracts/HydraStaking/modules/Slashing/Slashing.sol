@@ -119,6 +119,9 @@ contract Slashing is ISlashing, System {
     /// @notice Emitted when contract is initialized
     event SlashingContractInitialized(address hydraChain, address governance);
 
+    /// @notice Emitted when a reporter is stored for a slashed validator
+    event ReporterStored(address indexed validator, address indexed reporter);
+
     // _______________ Modifiers _______________
 
     modifier onlyGovernance() {
@@ -150,6 +153,12 @@ contract Slashing is ISlashing, System {
         require(hydraStakingAddr != address(0), "Invalid HydraStaking address");
         require(governanceAddr != address(0), "Invalid governance address");
         require(initialWhistleblowerRewardPercentage <= 1000, "Reward cannot exceed 10%"); // Max 10%
+
+        // Validate that addresses point to actual contracts
+        require(hydraChainAddr.code.length > 0, "HydraChain must be a contract");
+        require(hydraStakingAddr.code.length > 0, "HydraStaking must be a contract");
+        // Note: governanceAddr can be EOA (multisig or governance contract)
+        // Note: daoTreasuryAddr can be zero or EOA initially
 
         hydraChainContract = hydraChainAddr;
         hydraStakingContract = hydraStakingAddr;
@@ -225,6 +234,14 @@ contract Slashing is ISlashing, System {
         if (msg1Hash == msg2Hash) revert EvidenceMismatch("identical data hashes");
         if (slashingsInBlock[block.number] >= maxSlashingsPerBlock) revert MaxSlashingsExceeded();
 
+        // Validate evidence height and round values
+        require(height > 0, "Height must be greater than 0");
+        require(height <= block.number + 100, "Height too far in future");
+        // Prevent replay of old evidence (10000 blocks = ~8 hours on 3s block time)
+        if (block.number > 10000 && height < block.number) {
+            require(block.number - height <= 10000, "Evidence too old");
+        }
+
         // Verify signatures and execute slashing
         _verifyAndSlash(validator, msg1Hash, msg1Sig, msg2Hash, msg2Sig, height, round, msgType, reason, reporter);
     }
@@ -261,7 +278,9 @@ contract Slashing is ISlashing, System {
 
         // Store the reporter (whistleblower) for reward distribution
         if (reporter != address(0)) {
+            require(reporter != validator, "Reporter cannot be slashed validator");
             slashingReporter[validator] = reporter;
+            emit ReporterStored(validator, reporter);
         }
 
         // Emit events and execute slashing
@@ -286,6 +305,12 @@ contract Slashing is ISlashing, System {
         require(amount > 0, "No funds to lock");
         require(validator != address(0), "Invalid validator address");
 
+        // Prevent double-locking funds for the same validator
+        require(
+            lockedFunds[validator].amount == 0 || lockedFunds[validator].withdrawn,
+            "Funds already locked for this validator"
+        );
+
         // Get the reporter from storage (set in slashValidator)
         address reporter = slashingReporter[validator];
 
@@ -306,16 +331,7 @@ contract Slashing is ISlashing, System {
 
         // Record the locked amount (funds stay in HydraStaking contract)
         // Only lock the remaining amount after whistleblower reward
-        if (lockedFunds[validator].amount > 0 && !lockedFunds[validator].withdrawn) {
-            lockedFunds[validator].amount += amountToLock;
-            lockedFunds[validator].lockTimestamp = block.timestamp;
-        } else {
-            lockedFunds[validator] = LockedFunds({
-                amount: amountToLock,
-                lockTimestamp: block.timestamp,
-                withdrawn: false
-            });
-        }
+        lockedFunds[validator] = LockedFunds({amount: amountToLock, lockTimestamp: block.timestamp, withdrawn: false});
 
         uint256 unlockTime = block.timestamp + LOCK_PERIOD;
         emit FundsLocked(validator, amountToLock, unlockTime);
@@ -544,6 +560,11 @@ contract Slashing is ISlashing, System {
         // Verify signature validity
         if (v != 27 && v != 28) {
             revert InvalidSignature("Invalid v value in signature");
+        }
+
+        // Prevent signature malleability (EIP-2)
+        if (uint256(s) > 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0) {
+            revert InvalidSignature("Invalid s value - signature malleability detected");
         }
 
         // Recover address using ecrecover

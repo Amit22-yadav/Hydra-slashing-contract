@@ -804,6 +804,23 @@ Emitted when max slashings per block is updated
 | oldMax  | uint256 | undefined |
 | newMax  | uint256 | undefined |
 
+### ReporterStored
+
+```solidity
+event ReporterStored(address indexed validator, address indexed reporter)
+```
+
+Emitted when a reporter is stored for a slashed validator
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| validator `indexed` | address | undefined |
+| reporter `indexed` | address | undefined |
+
 ### SlashingContractInitialized
 
 ```solidity
