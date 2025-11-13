@@ -499,7 +499,8 @@ describe("Slashing", function () {
         [validator2, validator2Wallet],
         [validator3, validator3Wallet],
       ]) {
-        const height = 200;
+        const currentBlock = await ethers.provider.getBlockNumber();
+        const height = currentBlock;
         const round = 0;
         const msgType = 1;
 
@@ -554,7 +555,8 @@ describe("Slashing", function () {
 
     it("should handle batch send to treasury correctly", async function () {
       // Slash validator2
-      const height = 200;
+      const currentBlock = await ethers.provider.getBlockNumber();
+      const height = currentBlock;
       const round = 0;
       const msgType = 1;
 
@@ -796,7 +798,8 @@ describe("Slashing", function () {
       expect(await hydraStaking.stakeOf(testValidator.address)).to.equal(0);
 
       // Try to slash validator with zero stake
-      const height = 500; // Use different height to avoid conflicts
+      const currentBlock = await ethers.provider.getBlockNumber();
+      const height = currentBlock;
       const round = 0;
       const msgType = 1;
 
