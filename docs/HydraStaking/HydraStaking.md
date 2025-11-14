@@ -507,7 +507,7 @@ function hydraChainContract() external view returns (contract IHydraChain)
 ### initialize
 
 ```solidity
-function initialize(StakerInit[] initialStakers, uint256 newMinStake, address governance, address aprCalculatorAddr, address hydraChainAddr, address hydraDelegationAddr, address rewardWalletAddr, address liquidToken, address slashingAddr) external nonpayable
+function initialize(StakerInit[] initialStakers, uint256 newMinStake, address governance, address aprCalculatorAddr, address hydraChainAddr, address hydraDelegationAddr, address rewardWalletAddr, address liquidToken) external nonpayable
 ```
 
 
@@ -526,7 +526,6 @@ function initialize(StakerInit[] initialStakers, uint256 newMinStake, address go
 | hydraDelegationAddr | address | undefined |
 | rewardWalletAddr | address | undefined |
 | liquidToken | address | undefined |
-| slashingAddr | address | undefined |
 
 ### initiatePenalizedFundsWithdrawal
 
