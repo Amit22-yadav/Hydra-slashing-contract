@@ -151,6 +151,7 @@ contract HydraStaking is
     /**
      * @notice Initializer function for genesis contract, called by Hydra client at genesis to set up the initial set.
      * @dev only callable by client, can only be called once
+     * @dev slashing contract should be set separately via setSlashingContract() after fork activation
      */
     function initialize(
         StakerInit[] calldata initialStakers,
@@ -160,15 +161,14 @@ contract HydraStaking is
         address hydraChainAddr,
         address hydraDelegationAddr,
         address rewardWalletAddr,
-        address liquidToken,
-        address slashingAddr
+        address liquidToken
     ) external initializer onlySystemCall {
         __Staking_init(newMinStake, governance, aprCalculatorAddr, hydraChainAddr, rewardWalletAddr);
         __DelegatedStaking_init_unchained(hydraDelegationAddr);
         __Liquid_init(liquidToken);
         __Vesting_init_unchained();
 
-        slashingContract = Slashing(slashingAddr);
+        // slashingContract will be set later via setSlashingContract() at fork activation
         _initialize(initialStakers);
     }
 
