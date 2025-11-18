@@ -146,19 +146,21 @@ abstract contract Inspector is IInspector, ValidatorManager {
     function slashValidator(address validator, string calldata reason) external onlySlashing {
         if (validator == address(0)) revert InvalidValidatorAddress();
 
+        address slashingAddr = slashingContract;
+
         // Debug: Log validator status before checks
         emit DebugValidatorStatus(
             validator,
             validators[validator].status,
             _hasBeenSlashed[validator],
             hydraStakingContract.stakeOf(validator),
-            slashingContract
+            slashingAddr
         );
 
         if (validators[validator].status != ValidatorStatus.Active) revert ValidatorNotActive();
         if (_hasBeenSlashed[validator]) revert ValidatorAlreadySlashed();
         if (bytes(reason).length > 100) revert ReasonStringTooLong();
-        if (slashingContract == address(0)) revert SlashingNotSet();
+        if (slashingAddr == address(0)) revert SlashingNotSet();
 
         _hasBeenSlashed[validator] = true;
 
@@ -167,7 +169,7 @@ abstract contract Inspector is IInspector, ValidatorManager {
 
         // Call Slashing contract to lock the funds
         // Funds stay in HydraStaking but are locked for 30 days
-        ISlashingWithLock(slashingContract).lockSlashedFunds(validator, currentStake);
+        ISlashingWithLock(slashingAddr).lockSlashedFunds(validator, currentStake);
 
         // Mark validator as banned
         if (validators[validator].status == ValidatorStatus.Active) {
@@ -290,5 +292,10 @@ abstract contract Inspector is IInspector, ValidatorManager {
     // _______________ Gap for Upgradeability _______________
 
     // slither-disable-next-line unused-state,naming-convention
-    uint256[50] private __gap;
+    // IMPORTANT: Reduced from 50 to 48 to accommodate new variables:
+    //   - _hasBeenSlashed mapping (1 slot)
+    //   - slashingContract address (1 slot)
+    // This maintains storage layout compatibility when upgrading from V1 to V2
+    // Following OpenZeppelin's upgrade pattern: consume gap slots instead of shifting storage
+    uint256[48] private __gap;
 }

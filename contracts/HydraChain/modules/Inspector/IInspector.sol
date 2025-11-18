@@ -27,6 +27,18 @@ interface IInspector is IValidatorManager {
     function hasBeenSlashed(address validator) external view returns (bool);
 
     /**
+     * @notice Returns the address of the Slashing contract
+     * @return The slashing contract address
+     */
+    function slashingContract() external view returns (address);
+
+    /**
+     * @notice Set the Slashing contract address
+     * @param _slashing Address of the Slashing contract
+     */
+    function setSlashingContract(address _slashing) external;
+
+    /**
      * @notice Set the penalty amount for the banned validators
      * @param newPenalty Amount of the penalty
      */
