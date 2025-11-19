@@ -257,8 +257,7 @@ async function initializedHydraChainStateFixtureFunction(this: Mocha.Context) {
       hydraChain.address,
       hydraDelegation.address,
       rewardWallet.address,
-      liquidToken.address,
-      slashing.address
+      liquidToken.address
     );
 
   await hydraDelegation
@@ -379,8 +378,7 @@ async function initializedWithSpecificBonusesStateFixtureFunction(this: Mocha.Co
       hydraChain.address,
       hydraDelegation.address,
       rewardWallet.address,
-      liquidToken.address,
-      slashing.address
+      liquidToken.address
     );
 
   await hydraDelegation

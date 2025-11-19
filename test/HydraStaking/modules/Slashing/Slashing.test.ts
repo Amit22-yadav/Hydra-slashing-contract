@@ -161,8 +161,7 @@ describe("Slashing", function () {
         hydraChain.address,
         hydraDelegation.address,
         rewardWallet.address,
-        liquidToken.address,
-        slashing.address
+        liquidToken.address
       );
 
     await slashing
@@ -178,6 +177,7 @@ describe("Slashing", function () {
 
     // Set slashing contract
     await hydraChain.connect(systemSigner).setSlashingContract(slashing.address);
+    await hydraStaking.connect(systemSigner).setSlashingContract(slashing.address);
 
     // Disable whitelisting
     await hydraChain.connect(governance).disableWhitelisting();
@@ -489,7 +489,7 @@ describe("Slashing", function () {
       // Try to burn again
       await expect(slashing.connect(governance).burnLockedFunds(validator1.address)).to.be.revertedWithCustomError(
         slashing,
-        "AlreadyWithdrawn"
+        "NoLockedFunds"
       );
     });
 
