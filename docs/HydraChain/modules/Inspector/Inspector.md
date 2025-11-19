@@ -834,7 +834,7 @@ Set the reward of the person who reports a validator
 function setSlashingContract(address _slashing) external nonpayable
 ```
 
-
+Set the Slashing contract address
 
 
 
@@ -842,7 +842,7 @@ function setSlashingContract(address _slashing) external nonpayable
 
 | Name | Type | Description |
 |---|---|---|
-| _slashing | address | undefined |
+| _slashing | address | Address of the Slashing contract |
 
 ### setValidatorPenalty
 
