@@ -351,11 +351,7 @@ contract Slashing is ISlashing, System {
         uint256 amount = lockedFunds[validator].amount;
 
         // Clear the locked funds record completely
-        lockedFunds[validator] = LockedFunds({
-            amount: 0,
-            lockTimestamp: 0,
-            withdrawn: true
-        });
+        lockedFunds[validator] = LockedFunds({amount: 0, lockTimestamp: 0, withdrawn: true});
 
         // Call HydraStaking to burn the funds from its balance
         IHydraStaking(hydraStakingContract).burnSlashedFunds(amount);
@@ -375,11 +371,7 @@ contract Slashing is ISlashing, System {
         uint256 amount = lockedFunds[validator].amount;
 
         // Clear the locked funds record completely
-        lockedFunds[validator] = LockedFunds({
-            amount: 0,
-            lockTimestamp: 0,
-            withdrawn: true
-        });
+        lockedFunds[validator] = LockedFunds({amount: 0, lockTimestamp: 0, withdrawn: true});
 
         // Call HydraStaking to send the funds to treasury from its balance
         IHydraStaking(hydraStakingContract).sendSlashedFundsToTreasury(amount, daoTreasury);

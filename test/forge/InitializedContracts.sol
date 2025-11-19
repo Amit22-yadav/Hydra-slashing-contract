@@ -130,8 +130,7 @@ abstract contract InitializedContracts is Test {
             address(hydraChain),
             address(hydraDelegation),
             address(rewardWallet),
-            address(liquidityToken),
-            address(slashing)
+            address(liquidityToken)
         );
 
         // ⭐️ Initialize HydraDelegation

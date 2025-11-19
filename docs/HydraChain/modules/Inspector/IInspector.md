@@ -360,6 +360,22 @@ Set the reward of the person who reports a validator
 |---|---|---|
 | newReward | uint256 | Amount of the reward |
 
+### setSlashingContract
+
+```solidity
+function setSlashingContract(address _slashing) external nonpayable
+```
+
+Set the Slashing contract address
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| _slashing | address | Address of the Slashing contract |
+
 ### setValidatorPenalty
 
 ```solidity
@@ -392,6 +408,23 @@ Slashes a validator for double-signing or other misbehavior
 |---|---|---|
 | validator | address | Address of the validator to slash |
 | reason | string | Reason for slashing |
+
+### slashingContract
+
+```solidity
+function slashingContract() external view returns (address)
+```
+
+Returns the address of the Slashing contract
+
+
+
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | address | The slashing contract address |
 
 ### terminateBanProcedure
 
